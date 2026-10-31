@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NotepadPlus>
+	<functionList>
+		<associationMap>
+			<association id="pebakery.xml" userDefinedLangName="PEBakery (Dark)"/>
+			<association id="pebakery.xml" userDefinedLangName="PEBakery (Light)"/>
+		</associationMap>
+	</functionList>
+</NotepadPlus>

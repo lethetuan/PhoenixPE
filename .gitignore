@@ -1,0 +1,19 @@
+/Archive
+/Binary
+/Database
+/Output
+/Logs
+/Projects/PhoenixPE/Test Suite
+/Projects/PhoenixPE/Tools/x64/DISM
+/Projects/PhoenixPE/Tools/x64/OSCDIMG
+/Projects/PhoenixPE/Tools/x86/DISM
+/Projects/PhoenixPE/Tools/x86/OSCDIMG
+/Resources
+/Target
+/Workbench
+CodeBox.txt
+*log*.html
+*log*.txt
+PEBakeryLauncher.exe
+PEBakery.ini
+

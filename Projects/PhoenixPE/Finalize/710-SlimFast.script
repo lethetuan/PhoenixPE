@@ -1,0 +1,322 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This script is part of the PhoenixPE project and distributed under the MIT License.
+//
+// Additional 3rd party tools, encoded files, and programs used by the project are the property
+// of their respective authors and may be subject to their own license agreement.
+//
+// Copyright (c) 2014-2026 Jonathan Holmgren (Homes32)
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=SlimFast
+Description=Cleanup and remove unneeded files.
+Author=Homes32
+Level=7
+Selected=True
+Mandatory=False
+Version=1.1.3.0
+Date=2026-05-23
+
+[Variables]
+%LangList%=af-ZA|am-ET|as-IN|ar-SA|az-Latn-AZ|be-BY|bg-BG|bn-IN|bs-Latn-BA|ca-ES|ca-ES-valencia|chr-CHER-US|cs-CZ|cy-GB|da-DK|de-DE|el-GR|en-GB|en-US|es-ES|es-MX|et-EE|eu-ES|fa-IR|fi-FI|fil-PH|fr-CA|fr-FR|ga-IE|gd-GB|gl-ES|gu-IN|he-IL|hi-IN|hr-HR|hu-HU|hy-AM|id-ID|is-IS|it-IT|ja-JP|ka-GE|kk-GE|kk-KZ|km-KH|kn-IN|ko-KR|kok-IN|lb-LU|lo-LA|lt-LT|lv-LV|mi-NZ|mk-MK|ml-IN|mr-IN|ms-MY|mt-MT|nb-NO|ne-NP|nl-NL|nn-NO|or-IN|pa-IN|pl-PL|pt-BR|pt-PT|qps-ploc|qps-plocm|quz-PE|ro-RO|ru-RU|sk-SK|sl-SI|sr-Latn-CS|sq-AL|sr-Cyrl-BA|sr-Cyrl-RS|sr-Latn-RS|sv-SE|ta-IN|te-IN|th-TH|tt-RU|tr-TR|ug-CN|uk-UA|ur-PK|uz-Latn-UZ|vi-VN|zh-CN|zh-HK|zh-TW
+
+CleanupMui=Run,%ScriptFile%,CleanupMui
+
+[Process]
+Echo,"Cleaning up [TargetDir]..."
+FileDeleteEx,"%TargetDir%\Users\Default\Desktop\Desktop.ini"
+FileDeleteEx,"%TargetDir%\Users\Public\Desktop\Desktop.ini"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Double-Check and Remove Troublesome Files
+// Just to make sure some other script didn't add them....
+
+// Causes Explorer hang on boot
+FileDeleteEx,"%TargetSystem32%\WallpaperHost.exe"
+// Crashes Explorer, Pintool, StartIsBack
+FileDeleteEx,"%TargetSystem32%\Windows.CloudStore.dll"
+// Causes Issues with Pintool
+FileDeleteEx,"%TargetSystem32%\windows.immersiveshell.serviceprovider.dll"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Misc Cleanup 
+
+// Disable Diagnostic Telemetry Service
+// DiagTrack and diagnosticshub.standardcollector.service are disabled Shell Config
+DirDeleteEx,"%TargetWindows%\DiagTrack"
+DirDeleteEx,"%TargetSystem32%\DiagSvcs"
+FileDeleteEx,"%TargetSystem32%\diagER.dll"
+FileDeleteEx,"%TargetSystem32%\diagtrack.dll"
+
+// WMI Repository will be rebuilt at startup
+DirDeleteEx,"%TargetSystem32%\wbem\AutoRecover"
+DirDeleteEx,"%TargetSystem32%\wbem\Logs"
+DirDeleteEx,"%TargetSystem32%\wbem\Repository"
+DirDeleteEx,"%TargetSystem32%\wbem\tmf"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Unused Language (MUI) Folders 
+
+If,%cb_CleanupLangFolders%,Equal,True,Begin
+  CleanupMui,%TargetSystem32%
+  CleanupMui,"%TargetWindows%\Boot\EFI"
+  CleanupMui,"%TargetWindows%\Boot\PCAT"
+  CleanupMui,"%TargetWindows%\Boot\PXE"
+  CleanupMui,"%TargetWindows%\System32\wbem"
+  If,%SourceArch%,Equal,x64,CleanupMui,"%TargetWindows%\SysWOW64"
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Windows Speech2Text 
+
+Echo,"Removing folder [%TargetWindows%\Speech]..."
+If,%cb_DeleteSpeechFolder%,Equal,True,DirDeleteEx,"%TargetWindows%\Speech"
+
+///////////////////////////////////////////////////////////////////////////////////
+// WoW64
+// It's possible some user scripts might add WoW64 files
+// even if the user has disabled the Core - W0W64 script. Let's clean them up and save space.
+
+If,%cb_DeleteWoW64%,Equal,True,If,Not,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  Echo,"Removing unused WoW64 files..."
+  DirDeleteEx,"%TargetWindows%\SysWOW64"
+  RegHiveLoad,Tmp_Software,%RegSoftware%
+  RegHiveLoad,Tmp_Default,%RegDefault%
+  RegDelete,HKLM,"Tmp_Software\Wow6432Node"
+  System,ErrorOff,1
+  RegDelete,HKLM,"Tmp_Default\Software\Wow6432Node"
+  RegHiveUnLoad,Tmp_Software
+  RegHiveUnLoad,Tmp_Default
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Removed useless Paint 3D file associations
+Run,%ScriptFile%,RemovePaint3DAssociations
+
+///////////////////////////////////////////////////////////////////////////////////
+// Remove Migration Engine
+Echo,"Removing Migration Engine..."
+If,%cb_MigrationEngine%,Equal,True,Begin
+  DirDeleteEx,"%TargetSystem32%\migration"
+  FileDeleteEx,"%TargetSystem32%\migapp.xml"
+  FileDeleteEx,"%TargetSystem32%\migcore.dll"
+  FileDeleteEx,"%TargetSystem32%\migisol.dll"
+  FileDeleteEx,"%TargetSystem32%\migres.dll"
+  FileDeleteEx,"%TargetSystem32%\migstore.dll"
+  FileDeleteEx,"%TargetSystem32%\migsys.dll"
+  FileDeleteEx,"%TargetSystem32%\SFCN.dat"
+  FileDeleteEx,"%TargetSystem32%\SFL*.dat"
+  FileDeleteEx,"%TargetSystem32%\SFPAT*.inf"
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Network Kernel Debug Extensibility Modules
+If,%cb_NetworkKernelDebug%,Equal,True,FileDeleteEx,"%TargetSystem32%\kd_*.dll"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Cleanup any leftover transactions logs from hive edits. *Keep This Last*
+
+Echo,"Cleaning up transaction logs..."
+// Reg Cache
+FileDeleteEx,"%RegistryCache%\*.LOG1"
+FileDeleteEx,"%RegistryCache%\*.LOG2"
+FileDeleteEx,"%RegistryCache%\*.blf"
+FileDeleteEx,"%RegistryCache%\*.regtrans-ms"
+
+// Target
+FileDeleteEx,"%TargetSystem32%\config\*.LOG1"
+FileDeleteEx,"%TargetSystem32%\config\*.LOG2"
+FileDeleteEx,"%TargetSystem32%\config\*.blf"
+FileDeleteEx,"%TargetSystem32%\config\*.regtrans-ms"
+
+// SMI
+FileDeleteEx,"%TargetSystem32%\SMI\Store\Machine\*.LOG1"
+FileDeleteEx,"%TargetSystem32%\SMI\Store\Machine\*.LOG2"
+FileDeleteEx,"%TargetSystem32%\SMI\Store\Machine\*.blf"
+FileDeleteEx,"%TargetSystem32%\SMI\Store\Machine\*.regtrans-ms"
+
+// User
+FileDeleteEx,"%TargetDir%\Users\Default\*.LOG1"
+FileDeleteEx,"%TargetDir%\Users\Default\*.LOG2"
+FileDeleteEx,"%TargetDir%\Users\Default\*.blf"
+FileDeleteEx,"%TargetDir%\Users\Default\*.regtrans-ms"
+
+[#Remove3D#]
+// ===============================================================================================================================
+// Name...........: Remove3D
+// Description....: Remove useless file associations related to Paint 3D
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[RemovePaint3DAssociations]
+RegHiveLoad,Tmp_Software,%RegSoftware%
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.3ds\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.3ds\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.3mf\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.3mf\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.bmp\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.bmp\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.dae\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.dae\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.dxf\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.dxf\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.fbx\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.fbx\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.gif\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.gif\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.glb\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.glb\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jfif\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jfif\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpe\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpe\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpeg\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpeg\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpg\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.jpg\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.obj\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.obj\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.obj\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.obj\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.ply\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.ply\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.ply\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.ply\Shell\3D Print"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.png\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.png\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.stl\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.stl\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.tif\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.tif\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.tiff\Shell\3D Edit",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.tiff\Shell\3D Edit"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.wrl\Shell\3D Print",RegDelete,HKLM,"Tmp_Software\Classes\SystemFileAssociations\.wrl\Shell\3D Print"
+RegHiveUnload,Tmp_Software
+
+[#CleanupMui#]
+// ===============================================================================================================================
+// Name...........: CleanupMui
+// Description....: Removes unused Multi Lingual User Interfaces (.mui) files from the specified directory.
+// Syntax.........: Run,%ScriptFile%,CleanupMui,<Path>
+// Parameters.....: Path - Full path to the directory containing the root .mui folders.
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: Removal is accomplished by running DirDeleteEx on each folder for each language in the language list
+//                  excluding languages in the source image's fallback language list.
+// Related........: 
+// ===============================================================================================================================
+[CleanupMui]
+Echo,"Cleaning up unused languages in:#$x#$x[%^SIPARAM_1%]..."
+GetParam,1,%MuiPath%
+
+ForEach,%Language%,%LangList%,Begin
+  List,Pos,%SourceFallbackLang%,%Language%,%LangPos%
+  If,%LangPos%,Equal,0,DirDeleteEx,"%MuiPath%\%Language%"
+End
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: btn_SetDefaultOptions
+// ===============================================================================================================================
+[SetDefaultOptions]
+System,Cursor,Wait
+WriteInterface,Value,%ScriptFile%,Interface,cb_CleanupLangFolders,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_DeleteWoW64,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_DeleteSpeechFolder,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_MigrationEngine,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_NetworkKernelDebug,True
+System,Cursor,Normal
+
+[#ToggleAdvancedOptions#]
+// ===============================================================================================================================
+// Name...........: ToggleAdvancedOptions
+// Description....: Show/Hide Advanced options in the script's GUI
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called by [Interface] btn_AdvancedOptions
+// ===============================================================================================================================
+[ToggleAdvancedOptions]
+Message,"There are no advanced options available for this script."
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_ScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"This script performs general cleanup operations at the end of the build process."
+
+[#Interface#]
+// ===============================================================================================================================
+// Name...........: Interface
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[Interface]
+btn_SetDefaultOptions=,1,8,543,5,25,25,SetDefaultOptions,SetDefaults_16.png,True,"__Restore Defaults"
+btn_AdvancedOptions=,1,8,574,5,25,25,ToggleAdvancedOptions,Advanced_Disabled_16.png,True,"__Show Advanced Options"
+btn_ScriptInfo=,1,8,605,5,25,25,ShowScriptInfo,Help_16.png,True,"__Script Info"
+cb_CleanupLangFolders="Cleanup unused language folders",1,3,5,50,200,18,True
+cb_DeleteWoW64="Delete WoW64 folder if support disabled",1,3,5,70,437,18,True
+cb_DeleteSpeechFolder="Delete Speech folder",1,3,5,90,211,18,True,"__Delete unused Text-to-Speech resources."
+cb_MigrationEngine="Remove Migration Engine",1,3,5,110,200,18,True
+cb_NetworkKernelDebug="Network Kernel Debug Extensibility Modules",1,3,5,130,234,18,True
+
+[AuthorEncoded]
+Winrar3Dv3_80.png=12110,16252
+Logo=Winrar3Dv3_80.png
+
+[EncodedFile-InterfaceEncoded-SetDefaults_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHEGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE5LTEwLTIxVDE3OjIxOjEyLTA1OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiMWM3ZDhlNS1mMGMxLTMwNDgtOGNiOS03YWU4YjgyNDgyNmQiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDowNzhkNDM1MC04NWRmLTg4NDQtOTY0Mi1lYTIxNmU3YjUwNDIiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiPiA8ZGM6Y3JlYXRvcj4gPHJkZjpTZXE+IDxyZGY6bGk+SG9tZXMzMjwvcmRmOmxpPiA8L3JkZjpTZXE+IDwvZGM6Y3JlYXRvcj4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiIHN0RXZ0OndoZW49IjIwMTktMTAtMjFUMTc6MjE6MTItMDU6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MDdmNDNiMDctMTg1NC1hNjQwLWEwM2UtYTQxMTM2YTA0ODA2IiBzdEV2dDp3aGVuPSIyMDE5LTEwLTIxVDE3OjIxOjQ3LTA1OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmIxYzdkOGU1LWYwYzEtMzA0OC04Y2I5LTdhZThiODI0ODI2ZCIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PlYy9voAAAJBSURBVDiNpdHLThNRHAbwvkCjpalcSyyUEDo09Jw5MxZeggXdQHSpa96ARTclolWpLYtG20IDwdpaoeVOW63G0gvEmEaj3cFKYrxMXLjw88wAbQ3smOQ3OTn/73yZiw6A7jK0G9tjJ0rcPmtnB8zNFbnjU0VtT52VWD1/UcE4KzOFw39K3D6D44NDYRWeOVdQYKoxDue8YxjeH4b1lRXm5S70v+7HSHlkjO83FeSZkcNFnAUnDFsGuOIu7L0v4M7GbXRlusDeMGO9QMyIHikrYSA7ACEnQF2LuyLkrIzuTDd6Q704rB1CvabWp6B/qYeYFT31AmlTqtrX7XAmb2AwLsCyZoFz2wn7th2GqAHxfEI7nM6voW2+DY4dB8QNsVovsKVsCl2myOXyGrpA0LHSAWOsBZOxSeAL8LH0GWJYRGeyE/KqDHFFVOoFQkJQBucFpFNb+JH/gxeJFMx+M4SADW/TZdR2jnAzdAtXo1cgJ2XQ51TVKGBLrGqJXofkl7C5uotvld9YiC/hSSyCr8VfmF6cQcucAUPPhkAX6ZnGK9Aw9UhRCdeCJhAvQblwAPzkk+9ApXgA6z0rLGELWISBRuiZxkckQWLkIIUkGH1G9Ln7UPtUA/4Co75R6O/rIT2VoGaaNH4jmSM6EiAu4ieQgzJava2QZ2RMBCZgvmsGDVLweTOXeqZR8Jic8JFx8ogosl9Gj7cHpmkTqJ8/7iwvmCUqRcuc5i8q0JGHpJ08IG6uyB1rvNrarc18RHeu4DL+AeXUQV071uymAAAAAElFTkSuQmCCeJwTCk4tcUlNSyzNKSmONzTTK8hLZxgFIwes5sQv/03zkSgjAwBGXgl7UO9x9wEAAAACAAAAKgAAAKsJAAAAAAAAAQAAAAAAAAAAAAAA
+
+[InterfaceEncoded]
+SetDefaults_16.png=2475,3404
+Help_16.png=2830,3868
+Advanced_Exit_16.png=705,1048
+Advanced_Disabled_16.png=474,744
+
+[EncodedFile-InterfaceEncoded-Help_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHAWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAxOC0wMi0yMlQxNjo1OTo1MC0wNjowMCIgeG1wOk1vZGlmeURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6YWQ2OTFmMzItY2FiZC1hZTQzLTlmNjAtMzk5YjQyOTBlMTNiIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6OTBjZmFlNjAtYWJhZS1iNTQ3LWIyODEtOWYxNzg2YzM1NjQ2IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIj4gPGRjOmNyZWF0b3I+IDxyZGY6U2VxPiA8cmRmOmxpPkhvbWVzMzI8L3JkZjpsaT4gPC9yZGY6U2VxPiA8L2RjOmNyZWF0b3I+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIiBzdEV2dDp3aGVuPSIyMDE4LTAyLTIyVDE2OjU5OjUwLTA2OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo4MmNhNWFiYy05Mzg0LWUwNGYtOGE5NC0yMTk1NjY1NjY1YTUiIHN0RXZ0OndoZW49IjIwMTgtMDItMjJUMTc6MTA6MDUtMDY6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFkNjkxZjMyLWNhYmQtYWU0My05ZjYwLTM5OWI0MjkwZTEzYiIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MzowNC0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PozE0ngAAAOzSURBVDgRBcF9TJR1AMDx7/N7nnuOez/kxUJe4q2pWEgoykxLpqkzx6bhlszN/soZ/dE0W9bWZrVZ2WYt/ypn5VrmzDkZZk2INoRyNJEUUDg4TuC4g7vjjrvjHu7uefp8pJljb2KymMlr2g5rq5H0ZQj6V+mzwYOh4qrGbDyadqN1GfOhK7Hp2cV4VQWRE5+SF42QUVUUAEOSkDJZsMvuQEg68/OgfOBPjzvf4xnDpArW1xQe2rxS/XB/Q8kPzlnv6blYXJeEAEB+Z8MGTOllrE0b13V4uXXk3NDuS3/4rYmoTnGeDUk30f1PkNvDmntQz3/5mecKm2o8//6WGByNY7ehmI0Mec9Xlvw6rf51+Mv7K3IzBmff2sgbB2rJdZpJpZa5NzzJR+fv0dMxwqPZqq0XT37cvqbo/JapvpFl+fPtGxhv2PHjkauxuqJMFpdL5qtTO3A7ZMa8fnJtBmUlKissaR75UmgzER66K4qa1ttVqafvttBLi9d868lpTvkXWVloxunI4cLVfg6/e43GQ9c4e3GAWCDECjVJYikBqsTd30e4mSw9aq0tt4ontvx9vZ4lCi0SmayO2ST45dYYfQNR5r0ZkokkTruG50mYwcdRYnGNwHiQjmHdpW3b2iYixZV74sFFTMJAUWQkIZHSdHwTi5w8VsXpo2WMjgU5ezmA1e7G5bCQ67IyN7FApm7TdpFWFIvIGiiKjCwkxn0R7g/O09pSzmfHy+m6M8He40MMzTgoL3ZiiBzUHDsm1YJsMUtCHfmvU813oMiCJ/4Y4WgKcszUP2sFC1zuijA6qlJT5ULHhGq2ogsHT6+uQNztva8UxWba66rrT10fnkMsazhtKkIxOPeTB99kmP5HOgWVuUjChCzMWK0qWtLOltUWTe3u/VoUKNm/D1Yu9U9rglQ8jWwSxGMp9r5Uxqu7XqTt8CYcFkEqo+ByWPEFFNbWV/Oa5cHV2FR4WgQmw2yd6Gl7v7WIuTmZQDBJPLFMy+5KtjWWcGRfAZKRQVWt+OYkYvYyPtm1EOHCF+8FH3iR366vRQuEppsb3SPyuqr9XQNLUjaR5nr3FOGFBT74ZoBRv5m47iSvZBXfn3DP1E5d2TP43Y3Hsm4gH9/8AlmbHWMp9XBnafbOtj01lSa7rdQbynDrxgQR3DQ0VvB6UwFndgban5q82eqZiD6QRscR2SwKgGToaLKKP5Tu3Gib7Fxd4Ws5+Upd82JuwypTNqMXJANeOTxwCd9i91g4jaSawTAA+B9saZuyCHkkigAAAABJRU5ErkJggnic4/ZIzSmINzTTK8hLZxgFIw7wceOXd9V7kMTIAAAhOQWdbDOZ9gEAAAACAAAAIwAAAA4LAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Advanced_Exit_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAA7EAAAOxAGVKw4bAAACc0lEQVQ4y3XTX2jWZRQH8M/z+pttvIVuY5lMzDRppugioj9Q4EUlUZpFF1JCFBaV1BK68aJuQrqJrMibdhEGXrXKxDBqw4vSiNxGk7G37SJRKtvbmvNtre3V00WPISPP1cPzPefw/X7POVw5duArHML9V0oqIgKklFpxJ/oiYjql1IbFWIQ1EfFFSukqbMVARFSgyMVL8Ty2Y39K6QTuwBwuYG1K6R5sxOP4JqX0RkRUUkRIKT2AfRhDM5owg4WZaeR3DRNYjd0RcaDICcdwAPfhHBKGMZjxTtycsRbsz94QEbIPd+NH9ONVtF+Gtee//tz44UtYwiasRUfW/QO6ImL8crezqXszk9M4jmqBF3AdZjP1wfnFmel4SmkQG9CGR/FHQi8WdbQ2L9y18d4Vt1+/st5wsT586lTlrU09n/XMY/EKnsTvaMRUwo7b2lrWf7jtqeda25cvuHqu7q+GwvRENU4Mfv3M5iO93fMkrMMQBlArIuL9vs0PflIuGhZc88gWf38/oOmW9WYPHkrLyi2vd61u/+DtsZ+X4GmsyTKPRkQ3FFuWNqeuVes2zJwcMnX4c81PbFP79jvTx48p1WpLPjpTfQ03ZPMmUcatKaUjEXFGROhetWL45NbHYubseFR7DsbsxGSM7nw5Dt/UcaGhlIYz3Ureiy/xE56NiH9XeWj2z30rRyvvFHv2pPO9fZo+7TQ5MuLjqeqvcxfjHH7Bu3kCL6EvH5oUEbYvb03LSsXuztS4a3GpaKmXnD86O92/9/TZcj2iEb0R0ZXNfAgjETH6X4NL8eKN1zaWS6W2uYjJN8d+uws7s+aeiHjv/875HzeNCzhN2c5EAAAAAElFTkSuQmCCeJwTcUwpS8xLTk2Jd63ILIk3NNMryEtnGAUjBRxkwi/faXT+FiMDAK67CoVdXuX/AQAAAAIAAAAsAAAAwQIAAAAAAAABAAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Advanced_Disabled_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABjElEQVQ4y43Tz4tNcRgG8M+dOTGuRLhF9hi/h81IKRuR1IhSxIIssPAn3J1mb2oSNso0O2oWiIwNu2FWw21YkEm6ykwmv5XNc+rQnfLW6Zy+z/d9zvO+z/vWms2mBeIcjuMrhnC/06Wi8r0Ku/EIX9DACixHbwgW4wieo1UlWIsLOIWbmEA/fuI3NmMv9uEknmAQrZKgL8mvcAjH8A2LgveHYB5vQvSgSvAUI9iPOdQwhcngO7Ap2MqoHKuWMIu7+XMX7uAGZoKvw1kMoAfP8LkkOJAaN+I7XmAY7UqDZ3K2IUrOpLEfC1zEGvyI9Ml/kstoB9seh47iU4F6Erv8X9TiTjdqBUaxOjPQk4Y1OqhoBPuFt5mF+QLXcmEAl1Pb+QWa2BsFj3G96sIy7MzYzoVsfQcbZ7EUu3AP70qCwziN6fhcx7YkSs319KmNgyG/WhJMYBx7cCujeiIquvEeV+LApezLw2oJrcx2H25nHrZiC5akaeN5XuNl3n9tY6vcsMQUPqTm6cr5WNWaPzh+YcvU7DU1AAAAAElFTkSuQmCCeJyTcEwpS8xLTk2Jd8ksTkzKATIMzfQK8tIZRsFIALcY8ct/c/M8xcgAANAVDAqUbKQXAQAAAAIAAAAvAAAA2gEAAAAAAAABAAAAAAAAAAAAAAA
+
+[EncodedFile-AuthorEncoded-Winrar3Dv3_80.png]
+lines=3
+0=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
+1=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
+2=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
+3=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

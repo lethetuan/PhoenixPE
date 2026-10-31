@@ -1,0 +1,365 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This script is part of the PhoenixPE project and distributed under the MIT License.
+//
+// Additional 3rd party tools, encoded files, and programs used by the project are the property
+// of their respective authors and may be subject to their own license agreement.
+//
+// Copyright (c) 2014-2026 Jonathan Holmgren (Homes32)
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=VeraCrypt
+Description=(v1.26.29 x64) VeraCrypt is a free open source disk encryption software based on TrueCrypt 7.1a.
+Author=Homes32
+Level=5
+Selected=False
+Mandatory=False
+Version=1.2.1.0
+Date=2026-10-23
+
+[Variables]
+%ProgramFolder%="VeraCrypt"
+%ProgramExe%="VeraCrypt.exe"
+%ProgramVersion%="1.26.29
+%SetupFile%="VeraCrypt-%ProgramVersion%.msi"
+%DownloadURL%=https://sourceforge.net/projects/veracrypt/files/VeraCrypt#$p20%ProgramVersion%/Windows/VeraCrypt_Setup_x64_%ProgramVersion%.msi/download
+%ConfigFile%="%TargetDir%\Users\Default\AppData\Roaming\VeraCrypt\Configuration.xml"
+
+[Process]
+Echo,"Processing %ScriptTitle%..."
+
+If,Not,%SourceArch%,Equal,x64,Exit,"Error: Veracrypt can only be used with a x64 source."
+
+If,%cb_RunFromRam%,Equal,True,RunFromRam
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+If,Not,ExistFile,"%ProgramsCache%\%ProgramFolder%\%SetupFile%",Run,%ScriptFile%,DownloadProgram
+Run,%ScriptFile%,ExtractProgram,"%ProjectTemp%\%ProgramFolder%"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Register Veracrypt 
+
+Run,%ScriptFile%,RegisterVeraCrypt
+
+///////////////////////////////////////////////////////////////////////////////////
+// Settings
+
+Echo,"Configuring %ScriptTitle%..."
+
+StrFormat,SPLIT,%cmb_Language%,"[",2,%Lang%
+StrFormat,RTRIM,%Lang%,1,%Lang%
+
+// Build the XML Config File
+FileCreateBlank,%ConfigFile%
+TXTAddLine,%ConfigFile%,"<VeraCrypt></VeraCrypt>",Append
+XMLAdd,SubNode,%ConfigFile%,"VeraCrypt","Element","configuration",""
+
+// Language
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration","Element","config","en"
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration/config[last()]","Attribute","key","Language"
+
+// Start on Logon
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration","Element","config","0"
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration/config[last()]","Attribute","key","StartOnLogon"
+
+// Keep running in SysTray
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration","Element","config","0"
+XMLAdd,Append,%ConfigFile%,"VeraCrypt/configuration/config[last()]","Attribute","key","EnableBackgroundTask"
+
+XMLFormat,%ConfigFile%,Pretty
+
+///////////////////////////////////////////////////////////////////////////////////
+// Shortcuts
+
+If,%cb_DesktopShc%,Equal,True,AddShortcut,Desktop,"",%txt_ShortcutName%,"%PEPrograms%\%ProgramFolder%\%ProgramExe%","","%PEPrograms%\%ProgramFolder%"
+If,%cb_StartMenuShc%,Equal,True,AddShortcut,StartMenu,%txt_StartMenuFolder%,%txt_ShortcutName%,"%PEPrograms%\%ProgramFolder%\%ProgramExe%","","%PEPrograms%\%ProgramFolder%"
+If,%cb_PinToTaskbar%,Equal,True,PinShortcut,Taskbar,Auto,"%PEPrograms%\%ProgramFolder%\%ProgramExe%"
+If,%cb_PinToStartMenu%,Equal,True,PinShortcut,StartMenu,Auto,"%PEPrograms%\%ProgramFolder%\%ProgramExe%"
+
+[#RegisterVeracrypt#]
+// ===============================================================================================================================
+// Name...........: RegisterVeraCrypt
+// Description....: Register the VeraCrypt driver and COM interfaces.
+// Syntax.........: Run,%ScriptFile%,RegisterVeraCrypt
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: 
+// ===============================================================================================================================
+[RegisterVeracrypt]
+Echo,"Registering VeraCrypt..."
+
+RegHiveLoad,Tmp_Software,%RegSoftware%
+RegHiveLoad,Tmp_System,%RegSystem%
+
+// Register .hc File Ext.
+If,%cb_AssocFileExt%,Equal,True,Begin
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\.hc","","VeraCryptVolume"
+
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptVolume","","VeraCrypt Volume"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptVolume","AppUserModelID","IDRIX.VeraCrypt"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptVolume\DefaultIcon","","%PEPrograms%\%ProgramFolder%\VeraCrypt.exe,1"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptVolume\Shell\open\command","","#$q%PEPrograms%\%ProgramFolder%\VeraCrypt.exe#$q /v #$q%1#$q"
+End
+
+// VeraCrypt AppId
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\AppID\VeraCrypt.exe","AppId","{FE8B3B95-C80C-41f7-830F-FBA271C26F7E}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\AppID\{FE8B3B95-C80C-41f7-830F-FBA271C26F7E}","","VeraCrypt class"
+RegWrite,HKLM,REG_BINARY,"Tmp_Software\Classes\AppID\{FE8B3B95-C80C-41f7-830F-FBA271C26F7E}","AccessPermission",01,00,04,80,30,00,00,00,40,00,00,00,00,00,00,00,14,00,00,00,02,00,1c,00,01,00,00,00,00,00,14,00,07,00,00,00,01,01,00,00,00,00,00,05,04,00,00,00,01,02,00,00,00,00,00,05,20,00,00,00,20,02,00,00,01,02,00,00,00,00,00,05,20,00,00,00,20,02,00,00
+
+// VeraCrypt Class
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCrypt","","VeraCrypt class"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCrypt\CLSID","","{FE8B3B95-C80C-41f7-830F-FBA271C26F7E}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCrypt\CurVer","","VeraCrypt.1"
+
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCrypt.1","","VeraCrypt class"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCrypt.1\CLSID","","{FE8B3B95-C80C-41f7-830F-FBA271C26F7E}"
+
+// VeraCrypt COM Interface
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{C786E27C-2801-482C-B45D-D4357B270A29}","","ITrueCryptMainCom"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{C786E27C-2801-482C-B45D-D4357B270A29}\ProxyStubClsid32","","{00020424-0000-0000-C000-000000000046}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{C786E27C-2801-482C-B45D-D4357B270A29}\TypeLib","","{9ACF6176-5FC4-4690-A025-B3306A50EB6A}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{C786E27C-2801-482C-B45D-D4357B270A29}\TypeLib","Version","2.a"
+
+// VeraCrypt Main UAC Support Library
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{9ACF6176-5FC4-4690-A025-B3306A50EB6A}\2.a","","VeraCrypt Main UAC Support Library"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{9ACF6176-5FC4-4690-A025-B3306A50EB6A}\2.a\0\win64","","%PEPrograms%\%ProgramFolder%\VeraCrypt.exe"
+Else,If,%SourceArch%,Equal,arm64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{9ACF6176-5FC4-4690-A025-B3306A50EB6A}\2.a\0\arm64","","%PEPrograms%\%ProgramFolder%\VeraCrypt.exe"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{9ACF6176-5FC4-4690-A025-B3306A50EB6A}\2.a\FLAGS","","0"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{9ACF6176-5FC4-4690-A025-B3306A50EB6A}\2.a\HELPDIR","%PEPrograms%\%ProgramFolder%"
+
+// VeraCrypt Format AppId
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\AppID\VeraCrypt Format.exe","AppId","{A96D3797-9F31-49f4-A0CE-9657392CF789}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\AppID\{A96D3797-9F31-49f4-A0CE-9657392CF789}","","VeraCryptFormat class"
+RegWrite,HKLM,REG_BINARY,"Tmp_Software\Classes\AppID\{A96D3797-9F31-49f4-A0CE-9657392CF789}","AccessPermission",01,00,04,80,30,00,00,00,40,00,00,00,00,00,00,00,14,00,00,00,02,00,1c,00,01,00,00,00,00,00,14,00,07,00,00,00,01,01,00,00,00,00,00,05,04,00,00,00,01,02,00,00,00,00,00,05,20,00,00,00,20,02,00,00,01,02,00,00,00,00,00,05,20,00,00,00,20,02,00,00
+
+// VeraCrypt Format Class
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptFormat","","VeraCryptFormat class"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptFormat\CLSID","","{A96D3797-9F31-49f4-A0CE-9657392CF789}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptFormat\CurVer","","VeraCryptFormat.1"
+
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptFormat.1","","VeraCryptFormat class"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\VeraCryptFormat.1\CLSID","","{A96D3797-9F31-49f4-A0CE-9657392CF789}"
+
+// VeraCrypt Format COM Interface
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{7AB357D9-A17F-466E-BCD6-F49E97C218D8}","","ITrueCryptFormatCom"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{7AB357D9-A17F-466E-BCD6-F49E97C218D8}\ProxyStubClsid32","","{00020424-0000-0000-C000-000000000046}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{7AB357D9-A17F-466E-BCD6-F49E97C218D8}\TypeLib","","{56327DDA-F1A7-4E13-B128-520D129BDEF6}"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Interface\{7AB357D9-A17F-466E-BCD6-F49E97C218D8}\TypeLib","Version","2.8"
+
+// VeraCrypt Format UAC Support Library
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{56327DDA-F1A7-4E13-B128-520D129BDEF6}\2.8","","VeraCrypt Format UAC Support Library"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{56327DDA-F1A7-4E13-B128-520D129BDEF6}\2.8\0\win64","","%PEPrograms%\%ProgramFolder%\VeraCryptFormat.exe"
+Else,If,%SourceArch%,Equal,arm64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{56327DDA-F1A7-4E13-B128-520D129BDEF6}\2.8\0\arm64","","%PEPrograms%\%ProgramFolder%\VeraCryptFormat.exe"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{56327DDA-F1A7-4E13-B128-520D129BDEF6}\2.8\FLAGS","","0"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\TypeLib\{56327DDA-F1A7-4E13-B128-520D129BDEF6}\2.8\HELPDIR","%PEPrograms%\%ProgramFolder%"
+
+// Veracrypt Filter Driver
+RegWrite,HKLM,REG_SZ,"Tmp_System\ControlSet001\Services\veracrypt","DisplayName","veracrypt"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\ControlSet001\Services\veracrypt","ErrorControl",1
+RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_System\ControlSet001\Services\veracrypt","ImagePath","system32\drivers\veracrypt.sys"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\ControlSet001\Services\veracrypt","Start",1
+RegWrite,HKLM,REG_DWORD,"Tmp_System\ControlSet001\Services\veracrypt","Type",1
+
+RegHiveUnLoad,Tmp_Software
+RegHiveUnLoad,Tmp_System
+
+[#ExtractProgram#]
+// ===============================================================================================================================
+// Name...........: ExtractProgram
+// Description....: Extract program files from script/setup files.
+// Syntax.........: Run,%ScriptFile%,ExtractProgram,<DestDir>
+// Parameters.....: DestDir - The directory where the files will be extracted.
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: 
+// ===============================================================================================================================
+[ExtractProgram]
+Echo,"Extracting Program Files..."
+// Make sure we have a clean extract folder
+DirDeleteEx,"%ProjectTemp%\%ProgramFolder%"
+MsiExtract,"%ProgramsCache%\%ProgramFolder%\%SetupFile%",%^SIPARAM_1%
+
+FileCopy,"%ProjectTemp%\%ProgramFolder%\SourceDir\Drivers\veracrypt.sys","%TargetSystem32%\drivers\veracrypt.sys"
+FileCopy,"%ProjectTemp%\%ProgramFolder%\SourceDir\VeraCrypt\*.*","%TargetPrograms%\%ProgramFolder%"
+
+[#DownloadProgram#]
+// ===============================================================================================================================
+// Name...........: DownloadProgram
+// Description....: Download the program files from the author's website.
+// Syntax.........: Run,%ScriptFile%,DownloadProgram
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: 
+// ===============================================================================================================================
+[DownloadProgram]
+Echo,"Downloading %ScriptTitle%..."
+WebGet,"%DownloadURL%","%ProgramsCache%\%ProgramFolder%\%SetupFile%",NOERR
+If,Not,%^RET%,Equal,200,Halt,"Failed to download [%SetupFile%]: The code returned was [%^RET%]."
+
+[#ClearDownloadCache#]
+// ===============================================================================================================================
+// Name...........: ClearDownloadCache
+// Description....: Remove all downloaded setup and program files.
+// Syntax.........: Run,%ScriptFile%,ClearDownloadCache
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_PurgeCache
+// ===============================================================================================================================
+[ClearDownloadCache]
+DirDeleteEx,"%ProgramsCache%\%ProgramFolder%"
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: btn_SetDefaultOptions
+// ===============================================================================================================================
+[SetDefaultOptions]
+System,Cursor,Wait
+WriteInterface,Value,%ScriptFile%,Interface,cb_RunFromRam,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_DesktopShc,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_StartMenuShc,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToTaskbar,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToStartMenu,False
+WriteInterface,Value,%ScriptFile%,Interface,txt_StartMenuFolder,"Encryption"
+WriteInterface,Value,%ScriptFile%,Interface,txt_ShortcutName,"VeraCrypt"
+WriteInterface,Value,%ScriptFile%,Interface,cmb_Language,"English [en]"
+WriteInterface,Value,%ScriptFile%,Interface,cb_AssocFileExt,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_StartOnLogon,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_EnableBackgroundTask,True
+System,Cursor,Normal
+
+[#ToggleAdvancedOptions#]
+// ===============================================================================================================================
+// Name...........: ToggleAdvancedOptions
+// Description....: Show/Hide advanced options.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_AdvancedOptions
+// ===============================================================================================================================
+[ToggleAdvancedOptions]
+Message,"There are no advanced options available for this script."
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_ScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"VeraCrypt is a free open source disk encryption software based on TrueCrypt 7.1a."
+
+[#Interface#]
+// ===============================================================================================================================
+// Name...........: Interface
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[Interface]
+bvl_Homepage=bvl_Homepage,1,12,367,5,72,25
+web_Homepage=Homepage,1,10,377,9,60,18,https://www.veracrypt.fr
+btn_DownloadProgram=,1,8,448,5,25,25,DownloadProgram,VistalcoDownload_16.png,False,"__Download the program."
+btn_PurgeCache=,1,8,479,5,25,25,ClearDownloadCache,Trash.ico,True,"__Remove all downloaded setup files."
+btn_SetDefaultOptions=,1,8,541,5,25,25,SetDefaultOptions,SetDefaults_16.png,True,"__Restore Defaults"
+btn_AdvancedOptions=,1,8,571,5,25,25,ToggleAdvancedOptions,Advanced_Disabled_16.png,True,"__Show Advanced Options"
+btn_ScriptInfo=,1,8,601,5,25,25,ShowScriptInfo,Help_16.png,True,"__Script Info"
+bvl_RunFromRam=bvl_RunFromRam,1,12,5,50,133,25
+cb_RunFromRam="Run From RAM",1,3,12,54,100,18,True,"__When this option is enabled the program files will be stored in Boot.wim and loaded into memory on boot.#$x#$xYou should only select this option if you are booting from Read-Only media and your program requires write-access to the file system."
+bvl_Shortcuts=Shortcuts,1,12,5,90,133,184,8,Bold
+cb_DesktopShc=Desktop,1,3,12,104,122,18,False
+cb_StartMenuShc="Start Menu",1,3,12,123,122,18,True
+cb_PinToTaskbar="Pin to Taskbar",1,3,12,142,122,18,False
+cb_PinToStartMenu="Pin to Start Menu",1,3,12,161,122,18,False
+txt_StartMenuFolder="Start Menu Folder:",1,0,12,201,119,21,Encryption
+txt_ShortcutName="Shortcut Name:",1,0,12,243,119,21,VeraCrypt
+bvl_Options=Options,1,12,150,90,197,184,8,Bold
+lbl_Language=Language,1,1,159,110,153,16,8,Normal
+cmb_Language="English [en]",1,4,160,126,150,21,"Arabic [ar]","Basque [eu]","Belarusian [be]","Bulgarian [bg]","Burmese [my]","Catalan [ca]","Chinese (Hong Kong) [zh-hk]","Chinese (Simplified) [zh-cn]","Chinese (Traditional) [zh-tw]","Corsican [co]","Czech [cs]","Danish [da]","Dutch [nl]","English [en]","Estonian [et]","Finnish [fi]","French [fr]","Georgian [ka]","German [de]","Greek [el]","Hungarian [hu]","Indonesian [id]","Italian [it]","Japanese [ja]","Korean [ko]","Latvian [lv]","Norwegian (Nynorsk) [nn]","Persian [fa]","Polish [pl]","Portuguese (Brazil) [pt-br]","Romanian [ro]","Russian [ru]","Slovak [sk]","Slovenian [sl]","Spanish [es]","Swedish [sv]","Thai [th]","Turkish [tr]","Ukrainian [uk]","Uzbek (Cyrillic) [uz]","Vietnamese [vi]"
+cb_AssocFileExt="Associate the .hc file extension",1,3,160,154,174,18,True,"__Associate .hc files with VeraCrypt."
+cb_StartOnLogon="Start On Logon",1,3,160,175,170,20,False,"__Start VeraCrypt when you logon."
+cb_EnableBackgroundTask="Enable Background Task",1,3,160,197,180,18,True,"__Keep VeraCrypt running in the notification area."
+
+[InterfaceEncoded]
+SetDefaults_16.png=2475,3404
+Help_16.png=2830,3868
+Advanced_Disabled_16.png=474,744
+VistalcoDownload_16.png=927,1348
+Trash.ico=1150,1228
+
+[AuthorEncoded]
+VeraCrypt_80.png=9407,12644
+Logo=VeraCrypt_80.png
+
+[EncodedFile-AuthorEncoded-VeraCrypt_80.png]
+lines=3
+0=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
+1=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
+2=1FNSOuovnjoXNy75GI8VcsrYJEyT5a16yx1fzaF+G4Zy4i3LglEsALYNs6HefRGHSd2N9l7Mgf+SjvwkycKEmjpsPL4fLxzvcOeOhHI6R3zRrfameUVkoufRIi4PlRyB7R8cRcF21LscFUwPrqe5aqRQsrkulcDy2dM8w65S6dVedw2wPFLI8e7OwyQda8N7VVd3fit0t7IEJpBJu2IePW+N0CgRd6ZQwIS6Biysbzkdy0DNApMmZ3Gxsi7eIQZG253NOdfaRcdXv0XZVah4FjN/xdzR2P0jzl+tTfBcCHE6gII+ueYcs1YfGihKrM80/dBGd2287DVpQTtFBgyn2rVHVEZbKMGhSwdrr2hReEy/k89oZkQMoe+K+a9w+IkJb25/E7hMD3kmmoNkQuTAWb9oCF0U9aAkwoSKaw+Rk35yf4ZuovqNo0YMGl0+P6NWXy9BIwB6ZFDmpasIoh39JKDPeIq00JFT9kjKqCErLrYdGRlBR8d+5PNFzJgxA+3tk4JnsnR0dKCnpwcTJkzAnDlzQs+qJCrLSyozKLa93s9/NjQ0hN/9bguOHTuGRCKBhQvPwdKlS5BKpUPjRT0DfWyP80G93t6PoaPP9BLV9cH4Ugeye2tUFfm9r6+XL754hchms+L6668X7nmQ+zl69Ciff/75IpPJiG9962+0t07Lb6A6jqOG8v4K76UZ/7mqcByHy1VuvdbPH0/8+Mf/IubMmS1mz57FF110kVi4cIGYP3+e+P3vt/o0sUY6a/MFa5LjarTE0cSR56pueHhY2LatzxF6LoQYDDGQyyvkm2/+c3Wlc+rUyeLw4Q+CBW3YsMEPp8Svf/0iVylCe9NIVGsUKTpD1J+HH35Q0XDbbV8Vu3fvFgMDg/zhh0d506aXRVdXV7Vx9XUIb1gdBGejOXj+8MMP8b33/h/9YcAjjYFDFQj0H27c+IKwLFOYJolnn/1FQMA3vvF1xbw1ay4TY2NjqrFt2/ziiy+K73//e/zLX/4/zudzwa4dOnRIvPzyS2o3+/r6+KmnfiY+/PBDhcBdu3by+vVP8Y9+9EN+6aWXRD6fDxbw1ltvSeaJO+74mr7wkDT09/eL/fv3q/qdO9/mzZtf5aNHj4hdu95mIRxdqsT+/ftkWzE4OCj27t2jxjty5IhYt+4H/Oyzz7A3t0Lctm3beNasmbxs2WKxceNGsXfv3uoIdBynQoRl6e3tFeeff563iK+r+pGRYbFs2RLFwO985+9UtxMnTvBVV32avbejFDo/+cnLJULU8zvvvFPV/9Vf3Sk+9rHVqt3rr78unnzySTZN00ezqr/66s+L7u5uNf/tt98u2tpaRHd3V8BAXxTlR9a98cYb4hOf+Djfe+89YsqUKRKp/NxzG0RdXZZfeunXAcM7O0/ylCmT+dFH/14yQyxfvkxIdH3qU1eKCy5YxLW1NbxixQo+fvyYGvvaa6/lpqYGnjFjupg5c4a4//5vMceri8GqCJRVX/va7YqBS5cuFvl8QWzfvk0kEgbX1KTE7t3vKOI+97nPKQbcdddfi46O/XzTTTeyhxw1xre+dZ9iYG1tRkj9u3z5crFnzx6xadMmvvvuu/mVV37DTz31FM+ePUvN9eijj6jJV69eJdasWROgLarTZN2uXW+LhoY6bmpqFD/5yU+4v79ffkRzcxNLuvy+69b9QI3d0XFA9PScEplMWkyY0MYvvPC8GBgY4Dff3MFSp3/iEx8XjmMrUKxatYqvvPIKcejQQdHT0xOrIyUDQ+fCmiujzMyqVauVC9bR0UHHjx/Dnj17qFQSuOCCC7Fo0Xnq9/PP/xJtbc245JJLqbY2i6VLl6kBNm58EWNjozRx4kQ1bE1Nhp5++mm8+upmmj9/Pl1++eX48pe/jGPHjmPHju1Ip9Nqrn379qv+juNQKpUkRCIfjU55WqiSpTfffDPdcMMNaGpqkh/66ldvw6ZNL6Ovr1e1e+65Dbjsssswb95cKhQKlEgk6NZbb8OnP30VNTY2Ytmy5XjkkYfx2muv0d69e6m9vR11dXXIZrM0e/Ycam1t1c+HQh5fcL3NQ52qFd5N0JUrV2LevDk8MjKGHTu2Yffu3arBFVdcqQbZu3evXLhyJ774xT/FlClT8Jd/+RdqjNOnTyOXy8l4U407f/4CXHPNNchma1XC9Ikn1uHSS1fipptuwubNr0mGcTKZ4GLRfRFwwoSJfPLkSS6VSnHuhEK9bJvN1iu3Rm9y3XVfguPYePHFF1m6QDt37lSbJZ9JumprazF79uzQuBdeeCFqa7Pc2anuc8OWb67bdoV7xZGLSBVBqe7nTJo0CatXX4YDBw7hueeeQ0fHAdTVZSHRI4tknmRuQ8M4PPzww5g6dSrGxsZUYrempgb19Q2Kkb4nlssVkEgksW/fPtx55zfU73XrfoCvfOUW3H//3+Lb3/47+Axbs2YNNmzYgM2bN+OKK66I9TN9OqNMnjt3Hj71qbWK5uHhEbS1jcdnPnNV0KckL2kKJ9Snv79fMb2hocEHERKJMnuqZZ8qrrdFibz88k8ilbIkvCHFa8WK5Vi8eLF6tmjRIkyfPhUnT3ait7cXq1evUoRLJK5adalyeqVTLotEC7N7DNDd3a2Yl0olMH36dBw6dBAvv/ySR7i7sGuv/SJmz56Ja665Glu2bAkRPTo6KhGrEqhyXL+Pjo4bb7wJb721E9/+9v347Gc/i5aW1mDTC4U8nnnmFygUCkG/7373uyowOO+88zx6C+jvH6jYrJBzHuNI6z6O+nLixHExZUq7b2XFAw88EHr+zDO/kKJd/QIAAAR6SURBVEpciZQ8TkgkLNX2wQe/o9rdc8/dyojMnz9fKXlZ5N/LLlsV9Bk/fjy3tjar8S+7bLVyi+QUO3ZsFwsWLODa2lploe+++y6+8cYbeM2aj4l9+/aJgwcPsmka/Nhjj4WcOfm3WCzyJZesVHNLl8g3KB0dHTxnzmyePHkSf+lLX+QHHrifpSWXc2zY8FxgQe+5525F39VXf55feOGFkI/p88hxnKHY94V1qLa3T8ZDDz2i9Ehj4zil6/w2cgeuueYLmD17Dp599hm8//4hVTd16nSsXbtWtZPiJ3dz3rz5Sqxlkcr+ySd/isce+y7279+HtWuvwooVK/DiixtVX3/+5ctXYPv27Vi/fj1eeeU3ePPNHQpBK1ZcBKnYpYg9+OB3lK7WaZc0SPQ3NNTj0ksvxZIlS4LnkhYpwvfee59SpT//+Xq0tk7Ab37zG1x88cVBu29+83+jWCxh69atGBqqRKKHQI4N5SJuTch51f0xvX3Eyw98pogTzJofFy2hSMRtVxFBRGnRw8NQ5POzn/2UU6mkkK6KFmWIPXveE83NjWL9+vUVNMe5chH/L/p8tOKOtP8wDpl+Mz3Qj7Rn3arrffzkrDaX7kRHp/T/8Q1dr4UbVL49rvpIg3Lffffx9dd/mb/2ta9LVyVEfLFoS8NGAwN9Om3sH9NqJ4wV80FLg3nzHw7dztKMSJC61weNJjSjrwVoA+kZab+uIqsaeaaPQZHf/noqUjfaOZf6PTg4SDJzc9ddf42HH35E1fnvG8t2ra0tkH7iokXnB+PpuU2dlsia/Lwju/6nYvgT8steIlqoM4i1f45TT45qOb+KlLqOCv06XFyJWrQ/lNriKJeqjCkfS99NojCTyYT66yeHcf0kk70LllXH1sbxad6ov+oV/bf/4gYI1cWVuJxcXNuKvFolimPpONuYyrG1LPWJo1GiRn+pMbqus2kurQ1pyd2rrMipXHDO6kE1dECE8kESaVnr0KKjhEbGjW0PDWWa+IZQHmH02SRAny+kSvQjC308XRPF0VqRfC1L6umK21ln475G5Ed69lHHiGvz31mi4dl/hh9VD9Y1aAeo1HcKMSKg7ZK+yxTXLoZY8t8I8sfQ2ujfYw/WtXFj546OEf2uJwmqbW4U8Yjcka6IM89yVOnrgYp+etvo87Ofl8TXR8U52i66oCr9oWVzYo2Wvr648xDNiIQeWjF+G2k+G0d2LPDnYpiqW/HQwvUTLc2fi3IvqI/z+6J+ZEx9BR36GDFjRvuF3J0YmnQ+BUIQ1YH60S
+3=a0htGdp8jf6LEoYvrp6KUoSs7ioYQMQoTGEB1n6x8mLza3F1qzRj9FxtF9XzLiNjUuZaSXsxkSoLpSjlvn2fRONZo+avmoBq7aGj5KkW5MGvH6JWo8KtAZXZim6yh+qPj2cfNXQW8FsmP0a9zcZ2sfGyVV87wiY6SlDuxj5lYvXaXrsEBn+c5jhMDYaMPvq+lbv3+swtcUetz4/m+leqJHDnHzR3VghHYldnF0RHVwFQaGDSlw+v8D1mfqxxl7JAYAAAAASUVORK5CYIJ4nBMISy1KdC6qLCiJtzDQK8hLZxgFIwnsV8EvX5q89iojAwCyeAkpmR+C7AEAAAACAAAAKAAAAL8kAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-SetDefaults_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHEGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE5LTEwLTIxVDE3OjIxOjEyLTA1OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiMWM3ZDhlNS1mMGMxLTMwNDgtOGNiOS03YWU4YjgyNDgyNmQiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDowNzhkNDM1MC04NWRmLTg4NDQtOTY0Mi1lYTIxNmU3YjUwNDIiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiPiA8ZGM6Y3JlYXRvcj4gPHJkZjpTZXE+IDxyZGY6bGk+SG9tZXMzMjwvcmRmOmxpPiA8L3JkZjpTZXE+IDwvZGM6Y3JlYXRvcj4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiIHN0RXZ0OndoZW49IjIwMTktMTAtMjFUMTc6MjE6MTItMDU6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MDdmNDNiMDctMTg1NC1hNjQwLWEwM2UtYTQxMTM2YTA0ODA2IiBzdEV2dDp3aGVuPSIyMDE5LTEwLTIxVDE3OjIxOjQ3LTA1OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmIxYzdkOGU1LWYwYzEtMzA0OC04Y2I5LTdhZThiODI0ODI2ZCIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PlYy9voAAAJBSURBVDiNpdHLThNRHAbwvkCjpalcSyyUEDo09Jw5MxZeggXdQHSpa96ARTclolWpLYtG20IDwdpaoeVOW63G0gvEmEaj3cFKYrxMXLjw88wAbQ3smOQ3OTn/73yZiw6A7jK0G9tjJ0rcPmtnB8zNFbnjU0VtT52VWD1/UcE4KzOFw39K3D6D44NDYRWeOVdQYKoxDue8YxjeH4b1lRXm5S70v+7HSHlkjO83FeSZkcNFnAUnDFsGuOIu7L0v4M7GbXRlusDeMGO9QMyIHikrYSA7ACEnQF2LuyLkrIzuTDd6Q704rB1CvabWp6B/qYeYFT31AmlTqtrX7XAmb2AwLsCyZoFz2wn7th2GqAHxfEI7nM6voW2+DY4dB8QNsVovsKVsCl2myOXyGrpA0LHSAWOsBZOxSeAL8LH0GWJYRGeyE/KqDHFFVOoFQkJQBucFpFNb+JH/gxeJFMx+M4SADW/TZdR2jnAzdAtXo1cgJ2XQ51TVKGBLrGqJXofkl7C5uotvld9YiC/hSSyCr8VfmF6cQcucAUPPhkAX6ZnGK9Aw9UhRCdeCJhAvQblwAPzkk+9ApXgA6z0rLGELWISBRuiZxkckQWLkIIUkGH1G9Ln7UPtUA/4Co75R6O/rIT2VoGaaNH4jmSM6EiAu4ieQgzJava2QZ2RMBCZgvmsGDVLweTOXeqZR8Jic8JFx8ogosl9Gj7cHpmkTqJ8/7iwvmCUqRcuc5i8q0JGHpJ08IG6uyB1rvNrarc18RHeu4DL+AeXUQV071uymAAAAAElFTkSuQmCCeJwTCk4tcUlNSyzNKSmONzTTK8hLZxgFIwes5sQv/03zkSgjAwBGXgl7UO9x9wEAAAACAAAAKgAAAKsJAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Help_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHAWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAxOC0wMi0yMlQxNjo1OTo1MC0wNjowMCIgeG1wOk1vZGlmeURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6YWQ2OTFmMzItY2FiZC1hZTQzLTlmNjAtMzk5YjQyOTBlMTNiIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6OTBjZmFlNjAtYWJhZS1iNTQ3LWIyODEtOWYxNzg2YzM1NjQ2IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIj4gPGRjOmNyZWF0b3I+IDxyZGY6U2VxPiA8cmRmOmxpPkhvbWVzMzI8L3JkZjpsaT4gPC9yZGY6U2VxPiA8L2RjOmNyZWF0b3I+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIiBzdEV2dDp3aGVuPSIyMDE4LTAyLTIyVDE2OjU5OjUwLTA2OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo4MmNhNWFiYy05Mzg0LWUwNGYtOGE5NC0yMTk1NjY1NjY1YTUiIHN0RXZ0OndoZW49IjIwMTgtMDItMjJUMTc6MTA6MDUtMDY6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFkNjkxZjMyLWNhYmQtYWU0My05ZjYwLTM5OWI0MjkwZTEzYiIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MzowNC0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PozE0ngAAAOzSURBVDgRBcF9TJR1AMDx7/N7nnuOez/kxUJe4q2pWEgoykxLpqkzx6bhlszN/soZ/dE0W9bWZrVZ2WYt/ypn5VrmzDkZZk2INoRyNJEUUDg4TuC4g7vjjrvjHu7uefp8pJljb2KymMlr2g5rq5H0ZQj6V+mzwYOh4qrGbDyadqN1GfOhK7Hp2cV4VQWRE5+SF42QUVUUAEOSkDJZsMvuQEg68/OgfOBPjzvf4xnDpArW1xQe2rxS/XB/Q8kPzlnv6blYXJeEAEB+Z8MGTOllrE0b13V4uXXk3NDuS3/4rYmoTnGeDUk30f1PkNvDmntQz3/5mecKm2o8//6WGByNY7ehmI0Mec9Xlvw6rf51+Mv7K3IzBmff2sgbB2rJdZpJpZa5NzzJR+fv0dMxwqPZqq0XT37cvqbo/JapvpFl+fPtGxhv2PHjkauxuqJMFpdL5qtTO3A7ZMa8fnJtBmUlKissaR75UmgzER66K4qa1ttVqafvttBLi9d868lpTvkXWVloxunI4cLVfg6/e43GQ9c4e3GAWCDECjVJYikBqsTd30e4mSw9aq0tt4ontvx9vZ4lCi0SmayO2ST45dYYfQNR5r0ZkokkTruG50mYwcdRYnGNwHiQjmHdpW3b2iYixZV74sFFTMJAUWQkIZHSdHwTi5w8VsXpo2WMjgU5ezmA1e7G5bCQ67IyN7FApm7TdpFWFIvIGiiKjCwkxn0R7g/O09pSzmfHy+m6M8He40MMzTgoL3ZiiBzUHDsm1YJsMUtCHfmvU813oMiCJ/4Y4WgKcszUP2sFC1zuijA6qlJT5ULHhGq2ogsHT6+uQNztva8UxWba66rrT10fnkMsazhtKkIxOPeTB99kmP5HOgWVuUjChCzMWK0qWtLOltUWTe3u/VoUKNm/D1Yu9U9rglQ8jWwSxGMp9r5Uxqu7XqTt8CYcFkEqo+ByWPEFFNbWV/Oa5cHV2FR4WgQmw2yd6Gl7v7WIuTmZQDBJPLFMy+5KtjWWcGRfAZKRQVWt+OYkYvYyPtm1EOHCF+8FH3iR366vRQuEppsb3SPyuqr9XQNLUjaR5nr3FOGFBT74ZoBRv5m47iSvZBXfn3DP1E5d2TP43Y3Hsm4gH9/8AlmbHWMp9XBnafbOtj01lSa7rdQbynDrxgQR3DQ0VvB6UwFndgban5q82eqZiD6QRscR2SwKgGToaLKKP5Tu3Gib7Fxd4Ws5+Upd82JuwypTNqMXJANeOTxwCd9i91g4jaSawTAA+B9saZuyCHkkigAAAABJRU5ErkJggnic4/ZIzSmINzTTK8hLZxgFIw7wceOXd9V7kMTIAAAhOQWdbDOZ9gEAAAACAAAAIwAAAA4LAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Advanced_Disabled_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABjElEQVQ4y43Tz4tNcRgG8M+dOTGuRLhF9hi/h81IKRuR1IhSxIIssPAn3J1mb2oSNso0O2oWiIwNu2FWw21YkEm6ykwmv5XNc+rQnfLW6Zy+z/d9zvO+z/vWms2mBeIcjuMrhnC/06Wi8r0Ku/EIX9DACixHbwgW4wieo1UlWIsLOIWbmEA/fuI3NmMv9uEknmAQrZKgL8mvcAjH8A2LgveHYB5vQvSgSvAUI9iPOdQwhcngO7Ap2MqoHKuWMIu7+XMX7uAGZoKvw1kMoAfP8LkkOJAaN+I7XmAY7UqDZ3K2IUrOpLEfC1zEGvyI9Ml/kstoB9seh47iU4F6Erv8X9TiTjdqBUaxOjPQk4Y1OqhoBPuFt5mF+QLXcmEAl1Pb+QWa2BsFj3G96sIy7MzYzoVsfQcbZ7EUu3AP70qCwziN6fhcx7YkSs319KmNgyG/WhJMYBx7cCujeiIquvEeV+LApezLw2oJrcx2H25nHrZiC5akaeN5XuNl3n9tY6vcsMQUPqTm6cr5WNWaPzh+YcvU7DU1AAAAAElFTkSuQmCCeJyTcEwpS8xLTk2Jd8ksTkzKATIMzfQK8tIZRsFIALcY8ct/c/M8xcgAANAVDAqUbKQXAQAAAAIAAAAvAAAA2gEAAAAAAAABAAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-VistalcoDownload_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAADZklEQVQ4jUWT3WubdRTHP89L3p8mTfpim7ZL37ZZp6UTV1F0g00dXky9myAiXhf8A0QRvFCGF96o4IViJ0Mm4lSUIbIqdVs6W+3W1da+LW3SpC9Jm6TJ8+RJ+uT5SdLBDpzD4cD3e76Hc470zIUTHJiMU4szP3Yav+stXr00PVQqNL4SG1ea/ltYW29wp8Y2/roxuTF2CzOhANU6StVLe/VEkqBg5sHv8vf2D38b+Hv4bJdS5chRgcdUuZ28hud4elr+ff1lSCbud0UtapkaHCFnMLNPhc8+/8XsyEsEIxK4VYVCBXo98PP8Ga7eOnbc8l2/pzg/HHD1xJaNhSxq/+N9gI1pO/CrI9+c7yM46AMnIGqDqTCgQjoCi3EX0ptBVaRPfR/76Z/BuoL9vIGo6pjejhcOO7wnxVacsd0k4YYAgz2P4LEhU3PHCk88d4Ngbpu07H4sfT1y3mTtspqYy2OXDfTW1tOPhsfJKVPMbW7QUI4Q7nqPlKgwkbvJkrFNceMQvt4Z8EPjcNuZTHTtslpKeqESIG/FO2NCojtwglTvDI41ia/iP5DyXqNs5PFrTSwsj5CdPYe76Qr5lcZwfYT8TQ+KpWNFAtmELfGj8TUxLUdDeYaN6hKhUBiqMgV1hsaBL1m68ixWIUOlulhfn6IdbaVcbqN8+x2s0OJrpcN3kHRw52t1F3ljmb29KusJnYr0L67QFLolMKaXPy8nzEm19ekZ2WpWPFu/Vv5wO1djzYfoqcjgmHuIwuIHbGkfoYWmEXYDOztFKGqUk3rJuJO9VFdguhGyJd7vPJe46n+4YPs68HqCkDO20AJRukIa89FtbKuCpNrsb/vIfLf1hlXMT9UJnL1QXCLqj8ivt58S7e2tENLADkK3v8zUxR2yq1k8ARV5p43cpPPdStb3mRLqROgpVFcASXFhbE+IC76I8qnvySpeDY41aUx+coS9TRdDJ1swkyqbt/QdW6/OSk1VkOSDUxZVhOIkZGaFvjshVoVX7u4fcpP8s2Iu3M381tf34oqc6rJ25+Y3S/vpFcknTUv79sHz1Ajq0WbX6WfU3LOFdU8dLewL7o5XPqYl/vZc9Beqqx0QEjg0LzIC6T74AYF0QFjc5KJtWslk1Oos5Rn1toDd7MDINSK7aydvI+QHYID/Ab48jqdfCQxIAAAAAElFTkSuQmCCeJwTD8ssLknMSc53yS/Py8lPTIk3NNMryEtnGAUjAsxnxi+fwnL8OSMDAKdDC4fwuePJAQAAAAIAAAAvAAAAnwMAAAAAAAABAAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Trash.ico]
+lines=0
+0=eF511PtLU2EYB/B3KmV0M6IbSdkITlDQFQq6YBEWERV07w8IS43ykoMczs2juc2tXdxsudratDZ0qbPNqdlmUpabZUtnZRdL0yTrWJueY+QT72qhqx74/vJyPue853necxBiIRaKiUGIheJQYhRC8xFCKxBCMQihOPRrHVd8FPqr9uzeFb1je/zME8ePbSIIQkwQhIogCPV/omKz2YLY2MULN6xfN+PA/n1T8D2K5dKII4cP5bjdreD1eqHL5wOapqGvrw9sthooKdFAVVUlPH3aDkqlEthxcQvSziSxJu6D5HFTtVrtuF6vB4PBAFarFcxmM8jlMiDJXLh0SQo6nQ74OTx//JbNc8LfQ1fAPfre104NfXhHMaMjFMMw1JehT1S398lwh7uFarvXGIxJUfCYvXTJ3HBvUYlOh3xHQ3WgQZHDtNksgdviC7RVyKFb7zqC3q5XvYqKiMAtnlQ3xNws7Pu7u4YdkizGXpA+5q42BWolXLqKTGUa9MV+7O/cvNY7a/q0ZeHeLBNIse9otH1r0ghpanBwGO//1bN2qqlUE6jKO09j77SU9c+bPXN1uC9XXtRj73VU+h15yd/7u7u+Yv/G94yq5p0es0uzR7Fvrqn4yF40b9tlcd6k/tcbVDXYD7x+Qb184PJ7TCWjg329VKvFGHAZigMt9sph7FvqrJ9WLYvdqxLmTvLWq/L7of69fujyO0XnvnsqS0fqyOQxh5Qb3DuO21n3edPK5SeKhGREyDbXVrOabxm6Qp4e8VMvnLaAx2Icua+Xj7bfaww+G8fTdIdK2LjmVFpSYmTIG4sk0a328t5/zb+n+zk1cf44B3duzdq7O2FqyOfxeUkikXBcLpOBpLAQNBpN8Ayq1Wrg8/mQkZEOHA4H8vPzQSaTwanExKE9uxKmh7wwn+Q+evQQfJ2d8LjNAwMD/cAwDPT09EBtrR202itgNBrA1eSCzs4OUCoVP1LPJP/5GrUa9aqUlJR6hUIxjs95udkEprJSuFFqDJ59taoIpBIJWCoqQCwSQUZ6mjJ8/rgkhYVrOZmZgus63Ycyo9ErEhakZWdnXzt39mwmmZtbIeDnnCQFgl8/gwnFYyHkjPxH8Prv4GsmJRKht1MR+gkUry6xeJzjDClKLM7Qy0zOZxgFIxDUsUDoQGbs8iFCkXoMbAB+CQU+nVvy0AEAAAACAAAAJAAAAFEDAAAAAAAAAQAAAAAAAAAAAAAA

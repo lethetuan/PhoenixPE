@@ -1,0 +1,1169 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This script is part of the PhoenixPE project and distributed under the MIT License.
+//
+// Additional 3rd party tools, encoded files, and programs used by the project are the property
+// of their respective authors and may be subject to their own license agreement.
+//
+// Copyright (c) 2014-2026 Jonathan Holmgren (Homes32)
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=Explorer Shell
+Description=Explorer Shell and File Explorer for Windows.
+Author=Homes32
+Level=3
+Selected=True
+Mandatory=False
+Version=1.8.3.0
+Date=2026-10-19
+
+[Variables]
+
+[Process]
+Echo,"Processing Explorer Shell..."
+
+Set,%Shell%,"Explorer",PERMANENT
+
+///////////////////////////////////////////////////////////////////////////////////
+// Explorer Files
+Run,%ScriptFile%,ExtractFiles
+
+///////////////////////////////////////////////////////////////////////////////////
+// Config
+Echo,"Preparing Registry Hives..."
+RegHiveLoad,Tmp_Software,%RegSoftware%
+RegHiveLoad,Tmp_Default,%RegDefault%
+RegHiveLoad,Tmp_Drivers,%RegDrivers%
+RegHiveLoad,Tmp_System,%RegSystem%
+RegHiveLoad,Tmp_Install_Software,%RegInstallSoftware%
+RegHiveLoad,Tmp_Install_System,%RegInstallSystem%
+
+ExtractAllFiles,%ScriptFile%,Reg,%ProjectTemp%
+
+Run,%ScriptFile%,Reg-Explorer
+Run,%ScriptFile%,Reg-Themes
+Run,%ScriptFile%,Reg-BitLocker
+Run,%ScriptFile%,Reg-Search
+// 25H2+
+If,%SourceVer%,BiggerEqual,10.0.26200.0,Run,%ScriptFile%,Reg-StateRepository
+// User Config
+Run,%ScriptFile%,Reg-Options
+
+Echo,"Unloading Registry Hives..."
+RegHiveUnload,Tmp_Software
+RegHiveUnload,Tmp_Default
+RegHiveUnload,Tmp_Drivers
+RegHiveUnload,Tmp_System
+RegHiveUnload,Tmp_Install_Software
+RegHiveUnload,Tmp_Install_System
+
+///////////////////////////////////////////////////////////////////////////////////
+// Shortcuts
+
+If,%cb_DesktopShc%,Equal,True,AddShortcut,Desktop,"",%txt_ShortcutName%,"#$pwindir#$p\Explorer.exe","","#$pWwinDir#$p"
+If,%cb_StartMenuShc%,Equal,True,AddShortcut,StartMenu,%txt_StartMenuFolder%,%txt_ShortcutName%,"#$pwindir#$p\Explorer.exe","","#$pWinDir#$p"
+If,%cb_PinToTaskbar%,Equal,True,PinShortcut,Taskbar,0,"#$pwindir#$p\Explorer.exe"
+If,%cb_PinToStartMenu%,Equal,True,PinShortcut,StartMenu,0,"#$pwindir#$p\Explorer.exe"
+
+[#Reg-Themes#]
+// ===============================================================================================================================
+// Name...........: Reg-Themes
+// Description....: Configure Registry settings related to Explorer Themes 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-Themes]
+Echo,"Registering Themes Support..."
+
+RegImport,%ProjectTemp%\Themes-RegDefault.reg
+
+If,Not,%RegistrySoftwareSource%,Equal,"Install.wim",Begin
+  If,ExistRegSubKey,HKLM,"Tmp_Install_Software\Microsoft\Direct3D",RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Direct3D",HKLM,"Tmp_Software\Microsoft\Direct3D"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectDraw",HKLM,"Tmp_Software\Microsoft\DirectDraw"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectInput",HKLM,"Tmp_Software\Microsoft\DirectInput"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectMusic",HKLM,"Tmp_Software\Microsoft\DirectMusic"
+  If,ExistRegSubKey,HKLM,"Tmp_Install_Software\Microsoft\DirectPlay",RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectPlay",HKLM,"Tmp_Software\Microsoft\DirectPlay"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectPlay8",HKLM,"Tmp_Software\Microsoft\DirectPlay8"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectPlayNATHelp",HKLM,"Tmp_Software\Microsoft\DirectPlayNATHelp"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectShow",HKLM,"Tmp_Software\Microsoft\DirectShow"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\DirectX",HKLM,"Tmp_Software\Microsoft\DirectX"
+
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\RADAR",HKLM,"Tmp_Software\Microsoft\RADAR"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\Control Panel",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Control Panel"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\Controls Folder",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Controls Folder"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\Themes",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Themes"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\DWM",HKLM,"Tmp_Software\Microsoft\Windows\DWM"
+End
+
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\CoreMessagingRegistrar",HKLM,"Tmp_System\ControlSet001\Services\CoreMessagingRegistrar"
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\Themes",HKLM,"Tmp_System\ControlSet001\Services\Themes"
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\WindowsTrustedRT",HKLM,"Tmp_System\ControlSet001\Services\WindowsTrustedRT"
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows\DWM","OneCoreNoBootDWM",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows\DWM","ColorPrevalence",1
+RegWrite,HKLM,REG_NONE,"Tmp_System\Setup\AllowStart\Themes"
+RegWrite,HKLM,REG_NONE,"Tmp_System\Setup\AllowStart\CoreMessagingRegistrar"
+
+[#Reg-Explorer#]
+// ===============================================================================================================================
+// Name...........: Reg-Explorer
+// Description....: Configure Registry settings related to Explorer 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-Explorer]
+Echo,"Registering Explorer Shell..."
+RegImport,%ProjectTemp%\Explorer-RegDefault.reg
+
+// Shell New Context Menu
+RegWrite,HKLM,REG_MULTI_SZ,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew","Classes",".library-ms",".txt","Folder"
+RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew","~reserved~",08,00,00,00,00,00,06,00
+
+If,Not,%RegistrySoftwareSource%,Equal,"Install.wim",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\Explorer",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer"
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\Policies\Explorer",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Winlogon","shell","explorer.exe"
+  // Registry cached version of the Start menu + Windows.CloudStore.dll are required for Pintool
+  RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows\CurrentVersion\CloudStore",HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\CloudStore"
+  RegImport,%ProjectTemp%\Explorer-RegSoftware.reg
+  Run,%ScriptFile%,Reg-AdditionalFonts
+End
+
+// Prevent explorer from initializing start menu defaults/pins/recent apps/etc. (Prevents explorer crash in 23H2v2)
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","StartMenuInit",13
+
+// Set the My Computer > Properties context menu to open the classic System Properties dialog
+RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Properties\command","","#$pWinDir#$p\System32\SystemPropertiesComputerName.exe"
+
+//Cleanup Desktop Context Menu
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\DesktopBackground\Shell\Display",RegDelete,HKLM,"Tmp_Software\Classes\DesktopBackground\Shell\Display"
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\DesktopBackground\Shell\Personalize",RegDelete,HKLM,"Tmp_Software\Classes\DesktopBackground\Shell\Personalize"
+
+// Redirect modern Settings (eg. ms-settings:dateandtime) to Control Panel
+RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\ms-settings\Shell\Open\Command","","#$pSystemRoot#$p\system32\control.exe"
+
+// Remove duplicate Removable Drive Icon from Navigation Pane
+If,ExistRegSubKey,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegSubKey,HKLM,"Tmp_Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}",RegDelete,HKLM,"Tmp_Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\DelegateFolders\{F5FB2C77-0E2F-4A16-A381-3E560C68BC83}"
+End
+
+// Remove Quick access from Navigation Pane
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer","HubMode",1
+
+// Remove Libraries from this PC
+If,ExistRegSubKey,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{031e4825-7b94-4dc3-b131-e946b44c8dd5}",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{031e4825-7b94-4dc3-b131-e946b44c8dd5}"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegSubKey,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{031e4825-7b94-4dc3-b131-e946b44c8dd5}",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{031e4825-7b94-4dc3-b131-e946b44c8dd5}"
+End
+
+// Hide Network to Navigation Pane
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Classes\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\ShellFolder","Attributes",-1332477852
+
+// Hide 3D-Objects folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag","ThisPCPolicy","Hide"
+
+// Hide Contacts folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{56784854-C6CB-462B-8169-88E350ACB882}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{56784854-C6CB-462B-8169-88E350ACB882}\PropertyBag","ThisPCPolicy","Hide"
+
+// Show Desktop folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag"
+End
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{754AC886-DF64-4CBA-86B5-F7FBF4FBCEF5}\PropertyBag"
+End
+
+// Show Documents folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag"
+End
+
+// Show Downloads folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag"
+End
+
+// Show Favorites folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{1777F761-68AD-4D8A-87BD-30B759FA33DD}\PropertyBag"
+End
+
+// Show AppDataFavorites folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}\PropertyBag"
+End
+
+// Hide Links folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968}\PropertyBag","ThisPCPolicy","Hide"
+
+// Show Music folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag"
+End
+
+// Hide OneDrive folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}\PropertyBag","ThisPCPolicy","Hide"
+
+// Show Pictures folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag"
+End
+
+// Hide Saved Games folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4}\PropertyBag","ThisPCPolicy","Hide"
+
+// Hide Searches folder
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d1d3a04-debb-4115-95cf-2f29da2920da}\PropertyBag","ThisPCPolicy","Hide"
+If,%SourceArch%,Equal,x64,RegWrite,HKLM,REG_SZ,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d1d3a04-debb-4115-95cf-2f29da2920da}\PropertyBag","ThisPCPolicy","Hide"
+
+// Show Videos folder
+If,ExistRegValue,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag","ThisPCPolicy"
+RegWrite,HKLM,REG_NONE,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag"
+If,%SourceArch%,Equal,x64,Begin
+  If,ExistRegValue,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag","ThisPCPolicy",RegDelete,HKLM,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag","ThisPCPolicy"
+  RegWrite,HKLM,REG_NONE,"Tmp_Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag"
+End
+
+// Remove "Include in Library" Context Menu
+If,ExistRegSubKey,HKLM,"Tmp_Software\Classes\Folder\shellex\ContextMenuHandlers\Library Location",RegDelete,HKLM,"Tmp_Software\Classes\Folder\shellex\ContextMenuHandlers\Library Location"
+
+//Remove Copilot from taskbar (Win11 22621.2361+)
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","ShowCopilotButton",0
+
+// Device Setup Mgr (Eject Device & Printer Support)
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\DsmSvc",HKLM,"Tmp_System\ControlSet001\Services\DsmSvc"
+RegWrite,HKLM,REG_NONE,"Tmp_System\Setup\AllowStart\DsmSvc"
+
+// Remove 'Shortcut' from shortcut name and change the icon to be transparent
+RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer","link",00,00,00,00
+RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons",29,"#$pSystemRoot#$p\system32\Transparent.ico"
+
+// Register Shell Hardware Detection
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\ShellHWDetection",HKLM,"Tmp_System\ControlSet001\Services\ShellHWDetection"
+
+// Register USB drivers
+RegWrite,HKLM,REG_SZ,"Tmp_Drivers\DriverDatabase\DriverFiles\winusb.sys","","winusb.inf"
+
+[#Reg-BitLocker#]
+// ===============================================================================================================================
+// Name...........: Reg-BitLocker
+// Description....: Configure Registry settings related to Bitlocker shell extensions.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-BitLocker]
+Echo,"Registering Bitlocker Shell Extensions..."
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Services\BDESVC",HKLM,"Tmp_System\ControlSet001\Services\BDESVC"
+If,Not,%RegistrySoftwareSource%,Equal,"Install.wim",Begin
+  RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\Drive\shell\unlock-bde","","@#$pSystemRoot#$p\System32\bdeunlock.exe,-100"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Drive\shell\unlock-bde","AppliesTo","System.Volume.BitLockerProtection:=6"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Drive\shell\unlock-bde","DefaultAppliesTo",""
+  RegWrite,HKLM,REG_SZ,"Tmp_software\Classes\Drive\shell\unlock-bde","Icon","bdeunlock.exe"
+  RegWrite,HKLM,REG_SZ,"Tmp_Software\Classes\Drive\shell\unlock-bde","MultiSelectModel","Single"
+  RegWrite,HKLM,REG_EXPAND_SZ,"Tmp_Software\Classes\Drive\shell\unlock-bde\command","","#$pSystemRoot#$p\System32\bdeunlock.exe #$p1"
+End
+
+[#Reg-Search#]
+// ===============================================================================================================================
+// Name...........: Reg-Search
+// Description....: Configure Registry settings related to Explorer's Search functionality 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-Search]
+Echo,"Registering Windows Search..."
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Start_SearchFiles",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Start_SearchPrograms",1
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\Windows Search",HKLM,"Tmp_Software\Microsoft\Windows Search"
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\Control\ContentIndex",HKLM,"Tmp_System\ControlSet001\Control\ContentIndex"
+RegCopy,HKLM,"Tmp_Install_System\ControlSet001\services\WSearchIdxPi",HKLM,"Tmp_System\ControlSet001\services\WSearchIdxPi"
+
+// Volume Info Cache
+If,ExistRegSubKey,HKLM,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache",RegDelete,HKLM,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache"
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\C:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\C:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\D:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\D:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\E:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\E:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\F:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\F:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\G:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\G:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\H:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\H:","VolumeLabel",""
+RegWrite,HKLM,REG_DWORD,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\I:","DriveType",3
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows Search\VolumeInfoCache\I:","VolumeLabel",""
+
+[#Reg-StateRepository#]
+// ===============================================================================================================================
+// Name...........: Reg-StateRepository
+// Description....: Configure Registry settings related to Appx/StateRepository
+//                  Required for Win11 as of 10.0.26100.3915
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-StateRepository]
+Echo,"Registering AppX Services..."
+
+// Service
+RegCopy,HKLM,"Tmp_Install_SYSTEM\ControlSet001\Services\StateRepository",HKLM,"Tmp_SYSTEM\ControlSet001\Services\StateRepository"
+
+// Already present in Full Software Hive
+// RegCopy,HKLM,Tmp_Software\Microsoft\Windows\CurrentVersion\AppModel\StateRepository
+// RegCopy,HKLM,Tmp_Software\Microsoft\Windows\CurrentVersion\Appx
+
+[#Reg-AdditionalFonts#]
+// ===============================================================================================================================
+// Name...........: Reg-AdditionalFonts
+// Description....: Register additional fonts not present in Boot.wim/WinRE.wim
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: Only required if not Install.wim SOFTWARE hive.
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-AdditionalFonts]
+Echo,"Registering Additional Fonts..."
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Segoe Fluent Icons (TrueType)","SegoeIcons.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Segoe UI (TrueType)","segoeui.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Courier 10#$c12#$c15","coure.fon"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","MS Sans Serif 8#$c10#$c12#$c14#$c18#$c24","sserife.fon"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Arial (TrueType)","arial.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Arial Black (TrueType)","ariblk.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Arial Bold (TrueType)","arialbd.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Arial Bold Italic (TrueType)","arialbi.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Arial Italic (TrueType)","ariali.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri (TrueType)","calibri.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri Bold (TrueType)","calibrib.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri Italic (TrueType)","calibrii.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri Light (TrueType)","calibril.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri Light Italic (TrueType)","calibrili.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Calibri Bold Italic (TrueType)","calibriz.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Cambria & Cambria Math (TrueType)","cambria.ttc"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Cambria Bold (TrueType)","cambriab.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Cambria Italic (TrueType)","cambriai.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Cambria Bold Italic (TrueType)","cambriaz.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Comic Sans MS (TrueType)","comic.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Comic Sans MS Bold (TrueType)","comicbd.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Courier New (TrueType)","cour.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Courier New Bold (TrueType)","courbd.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Courier New Bold Italic (TrueType)","courbi.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Courier New Italic (TrueType)","couri.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Lucida Sans Unicode (TrueType)","l_10646.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","MS Serif","serifer.fon"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","MS Sans Serif","sserifer.fon"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Times New Roman Bold (TrueType)","timesbd.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Times New Roman Bold Italic (TrueType)","timesbi.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Times New Roman Italic (TrueType)","timesi.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Trebuchet MS (TrueType)","trebuc.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Trebuchet MS Bold (TrueType)","trebucbd.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Trebuchet MS Bold Italic (TrueType)","trebucbi.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Trebuchet MS Italic (TrueType)","trebucit.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Verdana (TrueType)","verdana.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Verdana Bold (TrueType)","verdanab.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Verdana Italic (TrueType)","verdanai.ttf"
+RegWrite,HKLM,REG_SZ,"Tmp_Software\Microsoft\Windows NT\CurrentVersion\Fonts","Verdana Bold Italic (TrueType)","verdanaz.ttf"
+
+[#Reg-Options#]
+// ===============================================================================================================================
+// Name...........: Reg-Options
+// Description....: Configure options set by the scripts UI.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: This section must be run AFTER other registrations so the user's options always override default settings.
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Reg-Options]
+Echo,"Configuring User Defined Options..."
+
+// Show Computer On Desktop
+If,%cb_ShowComputerOnDesktop%,Equal,True,Begin
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu","{20D04FE0-3AEA-1069-A2D8-08002B30309D}",1
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel","{20D04FE0-3AEA-1069-A2D8-08002B30309D}",0
+End
+Else,Begin
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu","{20D04FE0-3AEA-1069-A2D8-08002B30309D}",1
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel","{20D04FE0-3AEA-1069-A2D8-08002B30309D}",1
+End
+
+// DPI Scaling - This should be moved to another script eventually...
+If,%cb_DisableDPIScaling%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Control Panel\Desktop","Win8DpiScaling",0
+
+// Auto expand to current folder
+If,%cb_ExpandCurDir%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","NavPaneExpandToCurrentFolder",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","NavPaneExpandToCurrentFolder",0
+
+// Show Menu bar
+If,%cb_AlwaysShowMenus%,Equal,True,RegWrite,HKLM,0x04,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","AlwaysShowMenus",1
+
+// Expand Ribbon
+If,%cb_ExpandRibbon%,Equal,True,RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Ribbon","QatItems",3c,73,69,71,3a,63,75,73,74,6f,6d,55,49,20,78,6d,6c,6e,73,3a,73,69,71,3d,22,68,74,74,70,3a,2f,2f,73,63,68,65,6d,61,73,2e,6d,69,63,72,6f,73,6f,66,74,2e,63,6f,6d,2f,77,69,6e,64,6f,77,73,2f,32,30,30,39,2f,72,69,62,62,6f,6e,2f,71,61,74,22,3e,3c,73,69,71,3a,72,69,62,62,6f,6e,20,6d,69,6e,69,6d,69,7a,65,64,3d,22,66,61,6c,73,65,22,3e,3c,73,69,71,3a,71,61,74,20,70,6f,73,69,74,69,6f,6e,3d,22,30,22,3e,3c,73,69,71,3a,73,68,61,72,65,64,43,6f,6e,74,72,6f,6c,73,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,36,31,32,38,22,20,76,69,73,69,62,6c,65,3d,22,66,61,6c,73,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,36,31,32,39,22,20,76,69,73,69,62,6c,65,3d,22,66,61,6c,73,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,32,33,35,32,22,20,76,69,73,69,62,6c,65,3d,22,66,61,6c,73,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,32,33,38,34,22,20,76,69,73,69,62,6c,65,3d,22,74,72,75,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,32,33,33,36,22,20,76,69,73,69,62,6c,65,3d,22,74,72,75,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,73,69,71,3a,63,6f,6e,74,72,6f,6c,20,69,64,51,3d,22,73,69,71,3a,31,32,33,35,37,22,20,76,69,73,69,62,6c,65,3d,22,66,61,6c,73,65,22,20,61,72,67,75,6d,65,6e,74,3d,22,30,22,20,2f,3e,3c,2f,73,69,71,3a,73,68,61,72,65,64,43,6f,6e,74,72,6f,6c,73,3e,3c,2f,73,69,71,3a,71,61,74,3e,3c,2f,73,69,71,3a,72,69,62,62,6f,6e,3e,3c,2f,73,69,71,3a,63,75,73,74,6f,6d,55,49,3e
+
+// Expand Operation Dialog (FileCopy, Delete, Etc.)
+If,%cb_ExpandOpStatusDlg%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\OperationStatusManager","EnthusiastMode",1
+
+// Auto Hide Taskbar
+If,%cb_AutoHideTaskbar%,Equal,True,RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3","Settings",30,00,00,00,fe,ff,ff,ff,03,00,00,00,03,00,00,00,9b,00,00,00,64,00,00,00,00,00,00,00,0c,08,00,00,00,0f,00,00,70,08,00,00,f0,00,00,00,01,00,00,00
+
+// Lock the taskbar
+If,%cb_LockTaskbar%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarSizeMove",0
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarSizeMove",1
+
+// Small icons on Desktop
+If,%cb_SmallIconsOnDesktop%,Equal,True,Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\Shell\BagMRU","NodeSlots",02
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\Shell\BagMRU","NodeSlot",1
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\Shell\Bags\1\Desktop","IconSize",32
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\Shell\Bags\1\Desktop","Mode",1
+  RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\Shell\Bags\1\Desktop","LogicalViewMode",3
+End
+
+// Small icons in Menu
+If,%cb_SmallIconsInMenu%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Start_LargeMFUIcons",0
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Start_LargeMFUIcons",1
+
+// Small icons on Taskbar
+If,%cb_SmallIconsOnTaskbar%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarSmallIcons",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarSmallIcons",0
+
+// Taskbar Icons
+If,%rGrp_TaskbarIcons%,Equal,0,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarGlomLevel",0
+Else,If,%rGrp_TaskbarIcons%,Equal,1,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarGlomLevel",1
+Else,If,%rGrp_TaskbarIcons%,Equal,2,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","TaskbarGlomLevel",2
+Else,Halt,"INTERNAL LOGIC ERROR: No action configured for option [%rGrp_TaskbarIcons%]"
+
+// Hide known file extensions
+If,%cb_HideKnownFileExtensions%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","HideFileExt",1
+Else,If,%cb_HideKnownFileExtensions%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","HideFileExt",0
+
+// Hidden Files
+If,%cb_ShowHiddenFiles%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Hidden",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","Hidden",0
+
+// Super Hidden Files (Hidden+System)
+If,%cb_HideSystemFiles%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","ShowSuperHidden",0
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","ShowSuperHidden",1
+
+// Default Folder Layout (Currently we are only setting the "Generic" folder view CLSID.)
+If,%cmb_DefaultFolderLayout%,Equal,"Extra Large Icons",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,01,00,00,00,01,00,00,00,e0,d0,57,00,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,12,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,01,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,00,01,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,03,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Large Icons",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,01,00,00,00,01,00,00,00,e0,d0,57,00,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,13,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,01,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,60,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,03,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Medium Icons",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,01,00,00,00,01,00,00,00,e0,d0,57,00,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,11,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,01,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,30,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,03,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Small Icons",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,02,00,00,00,01,00,00,00,c0,00,90,08,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,14,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,01,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,10,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,03,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"List",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,03,00,00,00,01,00,00,00,e0,a5,1f,0e,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,15,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,03,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,10,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,04,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Details",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,04,00,00,00,01,00,00,00,00,77,7e,13,73,35,cf,11,ae,69,08,00,2b,2e,12,62,04,00,00,00,16,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,04,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,10,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,01,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Tiles",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,06,00,00,00,01,00,00,00,e5,25,f1,65,e1,7b,10,48,ba,9d,d2,71,c8,43,2c,e3,04,00,00,00,17,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,06,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,30,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,02,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,If,%cmb_DefaultFolderLayout%,Equal,"Content",Begin
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams","Settings",08,00,00,00,08,00,00,00,01,00,00,00,34,c4,c2,30,89,08,8d,4c,98,5d,a9,f7,18,30,b0,a9,04,00,00,00,18,00,00,00,43,00,00,00
+  RegWrite,HKLM,REG_BINARY,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Streams\Defaults","{5C4F28B5-F869-4E84-8E60-F11DB97C5CC7}",1c,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,f1,f1,f1,f1,14,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,d0,02,00,00,cc,02,00,00,31,53,50,53,05,d5,cd,d5,9c,2e,1b,10,93,97,08,00,2b,2c,f9,ae,83,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,46,00,4d,00,54,00,49,00,44,00,00,00,08,00,00,00,4e,00,00,00,7b,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,2d,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,30,00,7d,00,00,00,00,00,33,00,00,00,22,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,44,00,69,00,72,00,65,00,63,00,74,00,69,00,6f,00,6e,00,00,00,13,00,00,00,01,00,00,00,5b,00,00,00,0a,00,00,00,00,53,00,6f,00,72,00,74,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,1c,00,00,00,01,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,01,00,00,00,25,00,00,00,14,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,56,00,69,00,65,00,77,00,00,00,0b,00,00,00,00,00,00,00,1b,00,00,00,0a,00,00,00,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,08,00,00,00,23,00,00,00,12,00,00,00,00,49,00,63,00,6f,00,6e,00,53,00,69,00,7a,00,65,00,00,00,13,00,00,00,20,00,00,00,bd,00,00,00,10,00,00,00,00,43,00,6f,00,6c,00,49,00,6e,00,66,00,6f,00,00,00,42,00,00,00,1e,00,00,00,70,00,72,00,6f,00,70,00,34,00,32,00,39,00,34,00,39,00,36,00,37,00,32,00,39,00,35,00,00,00,00,00,78,00,00,00,fd,df,df,fd,10,00,00,00,00,00,00,00,00,00,00,00,04,00,00,00,18,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0a,00,00,00,10,01,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0e,00,00,00,90,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,04,00,00,00,78,00,00,00,30,f1,25,b7,ef,47,1a,10,a5,f1,02,60,8c,9e,eb,ac,0c,00,00,00,50,00,00,00,2f,00,00,00,1e,00,00,00,00,47,00,72,00,6f,00,75,00,70,00,42,00,79,00,4b,00,65,00,79,00,3a,00,50,00,49,00,44,00,00,00,13,00,00,00,00,00,00,00,1f,00,00,00,0e,00,00,00,00,46,00,46,00,6c,00,61,00,67,00,73,00,00,00,13,00,00,00,01,00,20,41,31,00,00,00,20,00,00,00,00,4c,00,6f,00,67,00,69,00,63,00,61,00,6c,00,56,00,69,00,65,00,77,00,4d,00,6f,00,64,00,65,00,00,00,13,00,00,00,05,00,00,00,00,00,00,00,00,00,00,00
+End
+Else,Halt,"INTERNAL LOGIC ERROR: Invalid selection [%cmb_DefaultFolderLayout%]."
+
+// Use Checkboxs to Select Items
+If,%cb_UseCheckboxsToSelectItems%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","AutoCheckSelect",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","AutoCheckSelect",0
+
+// Show Status Bar
+If,%cb_ShowStatusBar%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","ShowStatusBar",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","ShowStatusBar",0
+
+// Launch Folder Windows in a Separate Process
+If,%cb_LaunchFoldersInSeparateProcess%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","SeparateProcess",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","SeparateProcess",0
+
+// Use Compact View
+If,%cb_UseCompactMode%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","UseCompactMode",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced","UseCompactMode",0
+
+[#ExtractFiles#]
+// ===============================================================================================================================
+// Name...........: ExtractFiles
+// Description....: Builds a list file containing files to extract from install.wim, then uses wimlib to extract to %TargetDir%
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[ExtractFiles]
+
+Echo,"Building a list of required files..."
+
+///////////////////////////////////////////////////////////////////////////////////
+// Misc Windows Files
+
+RequireFileEx,AppendList,\Windows\SystemResources\Windows.UI.ShellCommon
+RequireFileEx,AppendList,\Users\Default\AppData\Roaming\Microsoft\Windows\SendTo\Compressed (zipped) Folder.zfsendtotarget,NOMUI
+RequireFileEx,AppendList,\Users\Default\AppData\Roaming\Microsoft\Windows\SendTo\Desktop (create shortcut).DeskLink,NOMUI
+RequireFileEx,AppendList,\Users\Default\AppData\Roaming\Microsoft\Windows\SendTo\desktop.ini,NOMUI
+
+///////////////////////////////////////////////////////////////////////////////////
+// Drivers
+
+// Windows Trusted Runtime Interface Driver
+RequireFileEx,AppendList,\Windows\System32\drivers\WindowsTrustedRT.sys,NOMUI
+
+// RunOnce
+RequireFileEx,AppendList,\Windows\System32\iernonce.dll
+RequireFileEx,AppendList,\Windows\System32\ole32.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Explorer
+
+RequireFileEx,AppendList,\Windows\explorer.exe
+RequireFileEx,AppendList,\Windows\System32\actxprxy.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\AppHelp.dll
+RequireFileEx,AppendList,\Windows\System32\AppResolver.dll
+RequireFileEx,AppendList,\Windows\System32\atlthunk.dll,NOMUI
+If,%SourceVer%,BiggerEqual,10.0.17134.0,RequireFileEx,AppendList,\Windows\System32\cdp.dll
+RequireFileEx,AppendList,\Windows\System32\clip.exe
+RequireFileEx,AppendList,\Windows\System32\Clipc.dll
+RequireFileEx,AppendList,\Windows\System32\avifil32.dll
+If,%SourceVer%,BiggerEqual,10.0.17134.0,RequireFileEx,AppendList,\Windows\System32\coloradapterclient.dll
+RequireFileEx,AppendList,\Windows\System32\comctl32.dll
+RequireFileEx,AppendList,\Windows\System32\comsvcs.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\control.exe,NOMUI
+RequireFileEx,AppendList,\Windows\System32\CoreMessaging.dll
+RequireFileEx,AppendList,\Windows\System32\CoreUIComponents.dll
+RequireFileEx,AppendList,\windows\system32\credssp.dll
+RequireFileEx,AppendList,\Windows\System32\cscapi.dll
+RequireFileEx,AppendList,\Windows\System32\ctfmon.exe
+RequireFileEx,AppendList,\Windows\System32\desk.cpl
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\DispBroker.dll
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\DispBroker.Desktop.dll
+RequireFileEx,AppendList,\Windows\System32\dlnashext.dll
+If,%SourceVer%,BiggerEqual,10.0.20150.0,RequireFileEx,AppendList,\Windows\System32\dmenrollengine.dll
+If,%SourceVer%,BiggerEqual,10.0.17134.0,RequireFileEx,AppendList,\Windows\System32\dsreg.dll
+RequireFileEx,AppendList,\Windows\System32\edputil.dll
+RequireFileEx,AppendList,\Windows\System32\dtsh.dll
+RequireFileEx,AppendList,\Windows\System32\ELSCore.dll
+RequireFileEx,AppendList,\Windows\System32\ExplorerFrame.dll
+RequireFileEx,AppendList,\Windows\System32\filemgmt.dll
+RequireFileEx,AppendList,\Windows\System32\fsmgmt.msc
+RequireFileEx,AppendList,\Windows\System32\hdwwiz.cpl
+RequireFileEx,AppendList,\Windows\System32\hdwwiz.exe
+RequireFileEx,AppendList,\Windows\System32\IconCodecService.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\imageres.dll
+RequireFileEx,AppendList,\Windows\System32\InfDefaultInstall.exe
+RequireFileEx,AppendList,\Windows\System32\InputSwitch.dll
+RequireFileEx,AppendList,\Windows\System32\kdcpw.dll
+If,%SourceVer%,BiggerEqual,10.0.19041.0,RequireFileEx,AppendList,\windows\System32\KernelBase.dll
+// Fix mouse cursor & taskbar/startmenu colors, etc. in 24H2
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\Microsoft.Internal.WarpPal.dll
+RequireFileEx,AppendList,\windows\system32\mblctr.exe
+If,%SourceVer%,BiggerEqual,10.0.26000.0,RequireFileEx,AppendList,\Windows\System32\mdmregistration.dll
+RequireFileEx,AppendList,\Windows\System32\mfperfhelper.dll
+RequireFileEx,AppendList,\Windows\System32\MrmCoreR.dll
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\mscms.dll
+RequireFileEx,AppendList,\Windows\System32\mscories.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\MsCtfMonitor.dll
+RequireFileEx,AppendList,\Windows\System32\mstask.dll
+RequireFileEx,AppendList,\Windows\System32\msutb.dll
+RequireFileEx,AppendList,\Windows\System32\mycomput.dll
+// ncsi.dll.mui is not included in WinRE.wim, so we must copy it here
+RequireFileEx,AppendList,\Windows\System32\ncsi.dll
+RequireFileEx,AppendList,\Windows\System32\nsi.dll
+RequireFileEx,AppendList,\Windows\System32\netplwiz.dll
+RequireFileEx,AppendList,\Windows\System32\netplwiz.exe
+RequireFileEx,AppendList,\Windows\System32\networkexplorer.dll
+RequireFileEx,AppendList,\Windows\System32\offreg.dll
+RequireFileEx,AppendList,\Windows\System32\pdh.dll
+RequireFileEx,AppendList,\Windows\System32\policymanager.dll
+RequireFileEx,AppendList,\Windows\System32\PhotoMetadataHandler.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\pnputil.exe
+RequireFileEx,AppendList,\Windows\System32\provsvc.dll
+RequireFileEx,AppendList,\Windows\System32\ProximityCommon.dll
+RequireFileEx,AppendList,\Windows\System32\ProximityCommonPal.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\ProximityService.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\ProximityServicePal.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\rmclient.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\rshx32.dll
+RequireFileEx,AppendList,\Windows\System32\sendmail.dll
+RequireFileEx,AppendList,\Windows\System32\SettingSyncCore.dll
+RequireFileEx,AppendList,\Windows\System32\SharedStartModel.dll,NOMUI
+If,%SourceVer%,BiggerEqual,10.0.19041.0,RequireFileEx,AppendList,\Windows\System32\SHCore.dll
+If,%SourceVer%,BiggerEqual,10.0.19041.0,RequireFileEx,AppendList,\Windows\System32\Shell32.dll
+RequireFileEx,AppendList,\Windows\System32\ShellCommonCommonProxyStub.dll
+
+RequireFileEx,AppendList,\Windows\System32\shellstyle.dll
+// In Win10 17763 shellstyle.dll is moved to windows\resources
+If,%SourceVer%,BiggerEqual,10.0.17763.0,RequireFileEx,AppendList,\Windows\resources\Themes\aero\shell\normalcolor\shellstyle.dll
+
+RequireFileEx,AppendList,\Windows\System32\shfolder.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\shpafact.dll
+RequireFileEx,AppendList,\Windows\System32\shutdown.exe
+RequireFileEx,AppendList,\Windows\System32\StartTileData.dll
+RequireFileEx,AppendList,\Windows\System32\stobject.dll
+RequireFileEx,AppendList,\Windows\System32\StorageUsage.dll
+RequireFileEx,AppendList,\Windows\System32\systemcpl.dll
+If,%SourceVer%,BiggerEqual,10.0.26000.0,RequireFileEx,AppendList,\Windows\System32\SystemSettings.DataModel.dll
+RequireFileEx,AppendList,\Windows\System32\TaskSchd.dll
+RequireFileEx,AppendList,\Windows\System32\TabSvc.dll
+RequireFileEx,AppendList,\Windows\System32\TextInputFramework.dll,NOMUI
+If,%SourceVer%,BiggerEqual,10.0.18300.0,RequireFileEx,AppendList,\Windows\System32\TextInputMethodFormatter.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\TextShaping.dll
+RequireFileEx,AppendList,\Windows\System32\thumbcache.dll
+RequireFileEx,AppendList,\Windows\System32\TDLMigration.dll
+RequireFileEx,AppendList,\Windows\System32\twinapi.appcore.dll
+RequireFileEx,AppendList,\Windows\System32\twinapi.dll
+RequireFileEx,AppendList,\Windows\System32\twinui.pcshell.dll
+RequireFileEx,AppendList,\Windows\System32\twinui.appcore.dll
+RequireFileEx,AppendList,\Windows\System32\UIAnimation.dll
+RequireFileEx,AppendList,\Windows\System32\UIRibbon.dll
+RequireFileEx,AppendList,\Windows\System32\UIRibbonRes.dll,NOMUI
+If,%SourceVer%,BiggerEqual,10.0.17134.0,RequireFileEx,AppendList,\Windows\System32\VEEventDispatcher.dll,NOMUI
+// We need Windows.CloudStore.dll.mui for pintool, but the actual .dll crashes explorer and StartIsBack
+// so after we extract we will need to delete the .dll
+RequireFileEx,AppendList,\Windows\System32\Windows.CloudStore.dll
+
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\Windows.Devices.Sensors.dll
+// Appears to cause issues with PinTool: \Windows\System32\windows.immersiveshell.serviceprovider.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Globalization.dll
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\Windows.Graphics.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Internal.Shell.Broker.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Networking.Connectivity.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.System.launcher.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.UI.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.UI.FileExplorer.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.UI.Core.TextInput.dll
+
+If,%SourceVer%,BiggerEqual,10.0.26100.0,RequireFileEx,AppendList,\Windows\System32\WindowsInternal.ComposableShell.Display.dll
+
+RequireFileEx,AppendList,\Windows\System32\windowsudk.shellcommon.dll
+
+If,%SourceVer%,BiggerEqual,10.0.18900.0,Begin
+  // Windows Management
+  RequireFileEx,AppendList,\Windows\System32\WindowManagement.dll
+  RequireFileEx,AppendList,\Windows\System32\WindowManagementAPI.dll
+  RequireFileEx,AppendList,\Windows\System32\GameInput.dll
+End
+RequireFileEx,AppendList,\Windows\System32\Windows.Networking.Connectivity.dll
+RequireFileEx,AppendList,\Windows\System32\WorkFoldersShell.dll
+RequireFileEx,AppendList,\Windows\System32\wpdshext.dll
+RequireFileEx,AppendList,\Windows\System32\zipfldr.dll
+
+// AppX
+If,%SourceVer%,BiggerEqual,10.0.17763.0,Begin
+  // AppRepository
+  RequireFileEx,AppendList,\ProgramData\Microsoft\Windows\AppRepository
+  
+  RequireFileEx,AppendList,\Windows\System32\StateRepository.core.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepository.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepository.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepositoryBroker.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepositoryClient.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepositoryCore.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepositoryPS.dll
+  RequireFileEx,AppendList,\Windows\System32\Windows.StateRepositoryUpgrade.dll
+End
+
+// Desktop Context Menu Images
+RequireFileEx,AppendList,\Windows\System32\Display.dll
+RequireFileEx,AppendList,\Windows\System32\themecpl.dll
+
+// Advanced system settings
+RequireFileEx,AppendList,\windows\System32\sysdm.cpl
+RequireFileEx,AppendList,\windows\System32\DeviceProperties.exe
+RequireFileEx,AppendList,\windows\System32\SystemPropertiesAdvanced.exe
+RequireFileEx,AppendList,\windows\System32\SystemPropertiesComputerName.exe
+RequireFileEx,AppendList,\windows\System32\systempropertieshardware.exe
+RequireFileEx,AppendList,\windows\System32\systempropertiesperformance.exe
+RequireFileEx,AppendList,\windows\System32\systempropertiesremote.exe
+
+// DragAndDrop
+// WinRe.wim: d2d1.dll, ksuser.dll
+RequireFileEx,AppendList,\Windows\System32\DataExchange.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\dcomp.dll
+RequireFileEx,AppendList,\windows\system32\d3d11.dll,NOMUI
+RequireFileEx,AppendList,\windows\system32\dxgi.dll,NOMUI
+
+// CopyProgress
+RequireFileEx,AppendList,\Windows\System32\chartv.dll
+RequireFileEx,AppendList,\Windows\System32\OneCoreUAPCommonProxyStub.dll,NOMUI
+
+// Previous version tab
+RequireFileEx,AppendList,\Windows\System32\twext.dll
+
+// Shell extension for Windows Script Host
+RequireFileEx,AppendList,\Windows\System32\wshext.dll
+
+// Eject usb
+RequireFileEx,AppendList,\windows\System32\DeviceCenter.dll
+RequireFileEx,AppendList,\windows\System32\DeviceEject.exe,NOMUI
+RequireFileEx,AppendList,\windows\System32\StorageContextHandler.dll
+RequireFileEx,AppendList,\windows\system32\DDOres.dll
+RequireFileEx,AppendList,\windows\system32\DeviceSetupManager.dll
+RequireFileEx,AppendList,\windows\system32\DeviceSetupManagerAPI.dll
+RequireFileEx,AppendList,\windows\system32\DeviceSetupStatusProvider.dll
+RequireFileEx,AppendList,\windows\system32\DevPropMgr.dll
+
+// WinUSB Driver
+RequireFileEx,AppendList,\Windows\INF\winusb.inf
+RequireFileEx,AppendList,\Windows\System32\drivers\winusb.sys
+RequireFileEx,AppendList,\Windows\System32\DriverStore\FileRepository\winusb.inf_*
+RequireFileEx,AppendList,\Windows\System32\winusb.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Theme and dwm
+RequireFileEx,AppendList,\Windows\System32\dwm.exe
+RequireFileEx,AppendList,\Windows\System32\dwmcore.dll
+RequireFileEx,AppendList,\Windows\System32\dwmghost.dll
+RequireFileEx,AppendList,\Windows\System32\dwminit.dll
+RequireFileEx,AppendList,\Windows\System32\dwmredir.dll
+RequireFileEx,AppendList,\Windows\System32\hotplug.dll
+RequireFileEx,AppendList,\Windows\System32\InputHost.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\ISM.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\themeservice.dll
+RequireFileEx,AppendList,\Windows\System32\themeui.dll
+RequireFileEx,AppendList,\Windows\System32\twinui.dll
+RequireFileEx,AppendList,\Windows\System32\ubpm.dll
+RequireFileEx,AppendList,\Windows\System32\uDWM.dll
+If,%SourceVer%,BiggerEqual,10.0.22000.282,RequireFileEx,AppendList,\Windows\System32\wuceffects.dll
+RequireFileEx,AppendList,\Windows\System32\wdi.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Gaming.Input.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.UI.Immersive.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Additional Command Line Programs
+RequireFileEx,AppendList,\Windows\System32\cacls.exe
+RequireFileEx,AppendList,\Windows\System32\Comp.exe
+RequireFileEx,AppendList,\Windows\System32\choice.exe
+RequireFileEx,AppendList,\Windows\System32\Fc.exe
+RequireFileEx,AppendList,\Windows\System32\findstr.exe
+RequireFileEx,AppendList,\Windows\System32\Help.exe
+RequireFileEx,AppendList,\Windows\System32\Label.exe
+RequireFileEx,AppendList,\Windows\System32\Makecab.exe,NOMUI
+RequireFileEx,AppendList,\Windows\System32\sc.exe
+RequireFileEx,AppendList,\Windows\System32\setx.exe
+RequireFileEx,AppendList,\Windows\System32\Sort.exe
+RequireFileEx,AppendList,\Windows\System32\taskkill.exe
+
+///////////////////////////////////////////////////////////////////////////////////
+// Additional Programs
+RequireFileEx,AppendList,\Windows\System32\winver.exe
+
+///////////////////////////////////////////////////////////////////////////////////
+// Search
+RequireFileEx,AppendList,\Windows\inf\wsearchidxpi
+RequireFileEx,AppendList,\Windows\System32\EhStorShell.dll
+RequireFileEx,AppendList,\Windows\System32\esent.dll
+RequireFileEx,AppendList,\Windows\System32\NaturalLanguage6.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\NOISE.DAT,NOMUI
+RequireFileEx,AppendList,\Windows\System32\MSWB7.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\mssph.dll
+RequireFileEx,AppendList,\Windows\System32\mssprxy.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\mssrch.dll
+RequireFileEx,AppendList,\Windows\System32\mssvp.dll
+RequireFileEx,AppendList,\Windows\System32\mssitlb.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\query.exe
+RequireFileEx,AppendList,\Windows\System32\query.dll
+RequireFileEx,AppendList,\Windows\System32\SearchFilterHost.exe,NOMUI
+RequireFileEx,AppendList,\Windows\System32\SearchFolder.dll
+RequireFileEx,AppendList,\Windows\System32\SearchIndexer.exe
+RequireFileEx,AppendList,\Windows\System32\SearchProtocolHost.exe,NOMUI
+RequireFileEx,AppendList,\Windows\System32\srchadmin.dll
+RequireFileEx,AppendList,\Windows\System32\StructuredQuery.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\tquery.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Shell.Search.UriHandler.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\Windows.Storage.Search.dll
+RequireFileEx,AppendList,\Windows\System32\wsepno.dll
+RequireFileEx,AppendList,\Windows\System32\prm*.dll
+RequireFileEx,AppendList,\Windows\System32\MLS*.dll
+
+// Cursor required for touch screens
+RequireFileEx,AppendList,\Windows\cursors\aero_arrow.cur
+
+///////////////////////////////////////////////////////////////////////////////////
+// ShellHWDetection
+RequireFileEx,AppendList,\Windows\System32\shsvcs.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Explorer BitLocker integration
+RequireFileEx,AppendList,\Windows\System32\BDEHDCFGLIB.dll
+RequireFileEx,AppendList,\Windows\System32\BitlockerWizard.exe
+RequireFileEx,AppendList,\Windows\System32\FVESKYBACKUP.dll
+RequireFileEx,AppendList,\Windows\System32\bdesvc.dll
+RequireFileEx,AppendList,\Windows\System32\bdeunlock.exe
+RequireFileEx,AppendList,\Windows\System32\fvenotify.exe
+RequireFileEx,AppendList,\Windows\System32\fvewiz.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Taking Ownership (Appinfo and ProfSvc services)
+
+// Winre.wim: profsvc.dll, profsvcext.dll, provsvc.dll, objsel.dll
+RequireFileEx,AppendList,\Windows\System32\appinfo.dll
+RequireFileEx,AppendList,\Windows\System32\appinfoext.dll,NOMUI
+RequireFileEx,AppendList,\Windows\System32\objsel.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Battery icon 
+
+// Winre.wim: hidbatt.inf, cmbatt.inf, battc.sys, HidBatt.sys, CmBatt.sys, umpo.dll, umpnpmgr.dll
+RequireFileEx,AppendList,\Windows\inf\battery.inf,NOMUI
+RequireFileEx,AppendList,\Windows\inf\c_battery.inf,NOMUI
+RequireFileEx,AppendList,\Windows\System32\batmeter.dll
+RequireFileEx,AppendList,\Windows\System32\umpoext.dll
+
+///////////////////////////////////////////////////////////////////////////////////
+// Additional Control Panels
+
+// Winre.wim: powercfg.cpl,powrprof.dll,workerdd.dll
+RequireFileEx,AppendList,\Windows\System32\intl.cpl
+RequireFileEx,AppendList,\Windows\System32\main.cpl
+RequireFileEx,AppendList,\Windows\System32\powercpl.dll
+RequireFileEx,AppendList,\Windows\System32\timedate.cpl
+RequireFileEx,AppendList,\Windows\System32\TabletPC.cpl
+
+///////////////////////////////////////////////////////////////////////////////////
+// Driver Catalog
+
+// Add all install.wim catalogs for drivers installation.
+// JFX -> TCP/IP Registry Compatibility http://TheOven.org/index.php?topic=2335
+RequireFileEx,AppendList,\Windows\System32\catroot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE},NOMUI
+
+///////////////////////////////////////////////////////////////////////////////////
+// Fonts
+
+// Add install.wim segoeui.ttf, to avoid the annoying cursive font as well as
+// more Segoe fonts/icons required for Win11 (Context Menu, Login Screen, etc.)
+RequireFileEx,AppendList,\Windows\Fonts\segoe*.ttf,NOMUI
+
+// Additional Fonts
+RequireFileEx,AppendList,\Windows\Fonts\arial.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\arialbd.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\arialbi.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\ariali.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibri.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibrib.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibrii.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibril.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibrili.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\calibriz.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\cambria.ttc,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\cambriab.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\cambriai.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\cambriaz.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\comic.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\comicbd.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\cour.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\coure.fon,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\courbd.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\courbi.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\l_10646.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\serifer.fon,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\sserife.fon,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\sserifer.fon,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\times.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\timesbd.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\timesbi.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\timesi.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\trebuc.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\trebucbd.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\trebucbi.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\trebucit.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\verdana.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\verdanab.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\verdanai.ttf,NOMUI
+RequireFileEx,AppendList,\Windows\Fonts\verdanaz.ttf,NOMUI
+
+// Asian Fonts ja-JP, ko-KR, zh-CN, zh-HK, zh-TW
+If,%SourceLang%,Equal,ja-JP,Begin
+  RequireFileEx,AppendList,\Windows\Fonts\meiryo.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\msgothic.ttc,NOMUI
+End
+
+If,%SourceLang%,Equal,ko-KR,Begin
+  RequireFileEx,AppendList,\Windows\Fonts\malgun.ttf,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\gulim.ttc,NOMUI
+End
+
+If,%SourceLang%,Equal,zh-CN,Begin
+  RequireFileEx,AppendList,\Windows\Fonts\msyh.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\msyhl.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\mingliu.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\simsun.ttc,NOMUI
+End
+
+If,%SourceLang%,Equal,zh-HK,Begin
+  RequireFileEx,AppendList,\Windows\Fonts\msjh.ttf,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\mingliu.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\simsun.ttc,NOMUI
+End
+
+If,%SourceLang%,Equal,zh-TW,Begin
+  RequireFileEx,AppendList,\Windows\Fonts\msjh.ttf,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\mingliu.ttc,NOMUI
+  RequireFileEx,AppendList,\Windows\Fonts\simsun.ttc,NOMUI
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+ExtractAllFiles,%ScriptFile%,Files-System32,%TargetSystem32%
+
+// We need Windows.CloudStore.dll.mui for pintool, but the actual .dll crashes explorer and StartIsBack so delete it.
+FileDelete,"%TargetSystem32%\Windows.CloudStore.dll"
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: btn_SetDefaultOptions
+// ===============================================================================================================================
+[SetDefaultOptions]
+System,Cursor,Wait
+WriteInterface,Value,%ScriptFile%,Interface,cb_DesktopShc,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_StartMenuShc,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToTaskbar,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_PinToStartMenu,True
+WriteInterface,Value,%ScriptFile%,Interface,txt_StartMenuFolder,"."
+WriteInterface,Value,%ScriptFile%,Interface,txt_ShortcutName,"File Explorer"
+WriteInterface,Value,%ScriptFile%,Interface,cb_ShowComputerOnDesktop,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_ExpandCurDir,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_AlwaysShowMenus,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_ExpandRibbon,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_AutoHideTaskbar,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_LockTaskbar,True
+WriteInterface,Value,%ScriptFile%,Interface,rGrp_TaskbarIcons,2
+WriteInterface,Value,%ScriptFile%,Interface,cb_SmallIconsInMenu,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_SmallIconsOnTaskbar,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_SmallIconsOnDesktop,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_DisableDPIScaling,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_ExpandOpStatusDlg,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_HideKnownFileExtensions,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_ShowHiddenFiles,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_HideSystemFiles,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_ShowStatusBar,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_UseCompactMode,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_UseCheckboxsToSelectItems,False
+WriteInterface,Value,%ScriptFile%,Interface,cb_LaunchFoldersInSeparateProcess,False
+WriteInterface,Value,%ScriptFile%,Interface,cmb_DefaultFolderLayout,"Details"
+System,Cursor,Normal
+
+[#ToggleAdvancedOptions#]
+// ===============================================================================================================================
+// Name...........: ToggleAdvancedOptions
+// Description....: Show/Hide advanced options in the script interface.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_AdvancedOptions
+// ===============================================================================================================================
+[ToggleAdvancedOptions]
+Message,"There are no advanced options available for this script."
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_ScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"Explorer Shell and File Explorer for Windows."
+
+[#Interface#]
+// ===============================================================================================================================
+// Name...........: Interface
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[Interface]
+btn_SetDefaultOptions=,1,8,543,5,25,25,SetDefaultOptions,SetDefaults_16.png,True,"__Restore Defaults"
+btn_AdvancedOptions=,1,8,574,5,25,25,ToggleAdvancedOptions,Advanced_Disabled_16.png,True,"__Show Advanced Options"
+btn_ScriptInfo=,1,8,605,5,25,25,ShowScriptInfo,Help_16.png,True,"__Script Info"
+bvl_Shortcuts=Shortcuts,1,12,5,50,133,184,8,Bold
+cb_DesktopShc=Desktop,1,3,12,65,122,18,False
+cb_StartMenuShc="Start Menu",1,3,12,84,122,18,True
+cb_PinToTaskbar="Pin to Taskbar",1,3,12,103,122,18,True
+cb_PinToStartMenu="Pin to Start Menu",1,3,12,122,122,18,True
+txt_StartMenuFolder="Start Menu Folder:",1,0,12,162,119,21,.
+txt_ShortcutName="Shortcut Name:",1,0,12,204,119,21,"File Explorer"
+bvl_Options=Options,1,12,151,50,480,237,8,Bold
+cb_ShowComputerOnDesktop="Show computer on desktop",1,3,375,97,172,18,True,"__Displays the Computer icon on the desktop"
+cb_ExpandCurDir="Auto expand to current folder",1,3,160,145,194,18,True,"__Expand Explorer's Navigation Pane to the current directory"
+cb_AlwaysShowMenus="Always show menus",1,3,160,65,200,18,False,"__Always show menu bar in Explorer"
+cb_ExpandRibbon="Expand ribbon",1,3,160,161,112,18,True,"__Expand Explorer's Ribbon by default"
+cb_AutoHideTaskbar="Auto hide taskbar",1,3,375,161,112,18,False,"__Automatically hide the Taskbar for full screen use"
+cb_LockTaskbar="Lock the taskbar",1,3,375,177,112,18,True
+rGrp_TaskbarIcons="Taskbar Icons",1,14,160,201,179,73,"Always Combine, Hide Labels","Combine When Taskbar Is Full","Never Combine",2
+cb_SmallIconsInMenu="Small icons in menu",1,3,375,129,145,18,True
+cb_SmallIconsOnTaskbar="Small icons on taskbar",1,3,375,145,137,18,True
+cb_SmallIconsOnDesktop="Small icons on desktop",1,3,375,113,146,18,True
+cb_DisableDPIScaling="Disable DPI scaling",1,3,375,193,171,18,True,"__Select this option to show larger Icons on high resolution displays."
+cb_ExpandOpStatusDlg="Expand operation status",1,3,160,177,200,18,True,"__Expand the modern FileCopy/Delete/Etc. dialog by default."
+cb_ShowStatusBar="Show status bar",1,3,160,81,200,18,True
+cb_LaunchFoldersInSeparateProcess="Launch folders in separate process",1,3,375,209,197,18,False,"__Launch folder windows in a separate process"
+cb_HideKnownFileExtensions="Hide extensions for known file types",1,3,160,97,200,18,False
+cb_ShowHiddenFiles="Show hidden files and folders",1,3,160,113,200,18,True
+cb_HideSystemFiles="Hide protected operating system files",1,3,160,129,200,18,True,"__Deselect this option to show files with the Hidden+System attributes."
+cb_UseCheckboxsToSelectItems="Use checkboxs to select items",1,3,375,65,173,18,False
+cb_UseCompactMode="Decrease space between items",1,3,375,81,200,18,False,"__Decrease space between items (compact view)"
+lbl_DefaultFolderLayout="Default Folder Layout:",1,1,375,235,149,16,8,Normal
+cmb_DefaultFolderLayout=Details,1,4,375,251,150,21,"Extra Large Icons","Large Icons","Medium Icons","Small Icons",List,Details,Tiles,Content
+
+[InterfaceEncoded]
+SetDefaults_16.png=2475,3404
+Help_16.png=2830,3868
+Advanced_Disabled_16.png=474,744
+
+[EncodedFile-InterfaceEncoded-SetDefaults_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHEGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE5LTEwLTIxVDE3OjIxOjEyLTA1OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiMWM3ZDhlNS1mMGMxLTMwNDgtOGNiOS03YWU4YjgyNDgyNmQiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDowNzhkNDM1MC04NWRmLTg4NDQtOTY0Mi1lYTIxNmU3YjUwNDIiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiPiA8ZGM6Y3JlYXRvcj4gPHJkZjpTZXE+IDxyZGY6bGk+SG9tZXMzMjwvcmRmOmxpPiA8L3JkZjpTZXE+IDwvZGM6Y3JlYXRvcj4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiIHN0RXZ0OndoZW49IjIwMTktMTAtMjFUMTc6MjE6MTItMDU6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MDdmNDNiMDctMTg1NC1hNjQwLWEwM2UtYTQxMTM2YTA0ODA2IiBzdEV2dDp3aGVuPSIyMDE5LTEwLTIxVDE3OjIxOjQ3LTA1OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmIxYzdkOGU1LWYwYzEtMzA0OC04Y2I5LTdhZThiODI0ODI2ZCIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PlYy9voAAAJBSURBVDiNpdHLThNRHAbwvkCjpalcSyyUEDo09Jw5MxZeggXdQHSpa96ARTclolWpLYtG20IDwdpaoeVOW63G0gvEmEaj3cFKYrxMXLjw88wAbQ3smOQ3OTn/73yZiw6A7jK0G9tjJ0rcPmtnB8zNFbnjU0VtT52VWD1/UcE4KzOFw39K3D6D44NDYRWeOVdQYKoxDue8YxjeH4b1lRXm5S70v+7HSHlkjO83FeSZkcNFnAUnDFsGuOIu7L0v4M7GbXRlusDeMGO9QMyIHikrYSA7ACEnQF2LuyLkrIzuTDd6Q704rB1CvabWp6B/qYeYFT31AmlTqtrX7XAmb2AwLsCyZoFz2wn7th2GqAHxfEI7nM6voW2+DY4dB8QNsVovsKVsCl2myOXyGrpA0LHSAWOsBZOxSeAL8LH0GWJYRGeyE/KqDHFFVOoFQkJQBucFpFNb+JH/gxeJFMx+M4SADW/TZdR2jnAzdAtXo1cgJ2XQ51TVKGBLrGqJXofkl7C5uotvld9YiC/hSSyCr8VfmF6cQcucAUPPhkAX6ZnGK9Aw9UhRCdeCJhAvQblwAPzkk+9ApXgA6z0rLGELWISBRuiZxkckQWLkIIUkGH1G9Ln7UPtUA/4Co75R6O/rIT2VoGaaNH4jmSM6EiAu4ieQgzJava2QZ2RMBCZgvmsGDVLweTOXeqZR8Jic8JFx8ogosl9Gj7cHpmkTqJ8/7iwvmCUqRcuc5i8q0JGHpJ08IG6uyB1rvNrarc18RHeu4DL+AeXUQV071uymAAAAAElFTkSuQmCCeJwTCk4tcUlNSyzNKSmONzTTK8hLZxgFIwes5sQv/03zkSgjAwBGXgl7UO9x9wEAAAACAAAAKgAAAKsJAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Help_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHAWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAxOC0wMi0yMlQxNjo1OTo1MC0wNjowMCIgeG1wOk1vZGlmeURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6YWQ2OTFmMzItY2FiZC1hZTQzLTlmNjAtMzk5YjQyOTBlMTNiIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6OTBjZmFlNjAtYWJhZS1iNTQ3LWIyODEtOWYxNzg2YzM1NjQ2IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIj4gPGRjOmNyZWF0b3I+IDxyZGY6U2VxPiA8cmRmOmxpPkhvbWVzMzI8L3JkZjpsaT4gPC9yZGY6U2VxPiA8L2RjOmNyZWF0b3I+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIiBzdEV2dDp3aGVuPSIyMDE4LTAyLTIyVDE2OjU5OjUwLTA2OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo4MmNhNWFiYy05Mzg0LWUwNGYtOGE5NC0yMTk1NjY1NjY1YTUiIHN0RXZ0OndoZW49IjIwMTgtMDItMjJUMTc6MTA6MDUtMDY6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFkNjkxZjMyLWNhYmQtYWU0My05ZjYwLTM5OWI0MjkwZTEzYiIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MzowNC0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PozE0ngAAAOzSURBVDgRBcF9TJR1AMDx7/N7nnuOez/kxUJe4q2pWEgoykxLpqkzx6bhlszN/soZ/dE0W9bWZrVZ2WYt/ypn5VrmzDkZZk2INoRyNJEUUDg4TuC4g7vjjrvjHu7uefp8pJljb2KymMlr2g5rq5H0ZQj6V+mzwYOh4qrGbDyadqN1GfOhK7Hp2cV4VQWRE5+SF42QUVUUAEOSkDJZsMvuQEg68/OgfOBPjzvf4xnDpArW1xQe2rxS/XB/Q8kPzlnv6blYXJeEAEB+Z8MGTOllrE0b13V4uXXk3NDuS3/4rYmoTnGeDUk30f1PkNvDmntQz3/5mecKm2o8//6WGByNY7ehmI0Mec9Xlvw6rf51+Mv7K3IzBmff2sgbB2rJdZpJpZa5NzzJR+fv0dMxwqPZqq0XT37cvqbo/JapvpFl+fPtGxhv2PHjkauxuqJMFpdL5qtTO3A7ZMa8fnJtBmUlKissaR75UmgzER66K4qa1ttVqafvttBLi9d868lpTvkXWVloxunI4cLVfg6/e43GQ9c4e3GAWCDECjVJYikBqsTd30e4mSw9aq0tt4ontvx9vZ4lCi0SmayO2ST45dYYfQNR5r0ZkokkTruG50mYwcdRYnGNwHiQjmHdpW3b2iYixZV74sFFTMJAUWQkIZHSdHwTi5w8VsXpo2WMjgU5ezmA1e7G5bCQ67IyN7FApm7TdpFWFIvIGiiKjCwkxn0R7g/O09pSzmfHy+m6M8He40MMzTgoL3ZiiBzUHDsm1YJsMUtCHfmvU813oMiCJ/4Y4WgKcszUP2sFC1zuijA6qlJT5ULHhGq2ogsHT6+uQNztva8UxWba66rrT10fnkMsazhtKkIxOPeTB99kmP5HOgWVuUjChCzMWK0qWtLOltUWTe3u/VoUKNm/D1Yu9U9rglQ8jWwSxGMp9r5Uxqu7XqTt8CYcFkEqo+ByWPEFFNbWV/Oa5cHV2FR4WgQmw2yd6Gl7v7WIuTmZQDBJPLFMy+5KtjWWcGRfAZKRQVWt+OYkYvYyPtm1EOHCF+8FH3iR366vRQuEppsb3SPyuqr9XQNLUjaR5nr3FOGFBT74ZoBRv5m47iSvZBXfn3DP1E5d2TP43Y3Hsm4gH9/8AlmbHWMp9XBnafbOtj01lSa7rdQbynDrxgQR3DQ0VvB6UwFndgban5q82eqZiD6QRscR2SwKgGToaLKKP5Tu3Gib7Fxd4Ws5+Upd82JuwypTNqMXJANeOTxwCd9i91g4jaSawTAA+B9saZuyCHkkigAAAABJRU5ErkJggnic4/ZIzSmINzTTK8hLZxgFIw7wceOXd9V7kMTIAAAhOQWdbDOZ9gEAAAACAAAAIwAAAA4LAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFolders]
+Files-System32
+Reg
+
+[EncodedFile-Reg-Explorer-RegDefault.reg]
+lines=0
+0=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
+
+[Reg]
+Explorer-RegDefault.reg=12126,2160
+Explorer-RegSoftware.reg=26788,3304
+Themes-RegDefault.reg=7244,1496
+
+[EncodedFile-Reg-Explorer-RegSoftware.reg]
+lines=0
+0=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
+
+[EncodedFile-Reg-Themes-RegDefault.reg]
+lines=0
+0=/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4BxLA8ldAH+/hokDLPQBQoDWOijxWmdMljEZRb5Nhblh/LKL69uBa/4FIn9DxoldjIbnoalyH29LcZpvD2LG/NoORcgvDGICMWdljLezGBYfK/pRL1SMGQefFQ1PzXqKktlPwJnxF7QEpj67sV2ujIGpAWdq7fOLtZLDVlKN6W4eC1IfCu3vB8TZrxd4exTtlWzz3fyGh61t9DqvvdJeobveCMDCmyR/+Nr9EdRnjQH0QvV9p4m7kPuPswTniTkbuEQWDq/5ltYjvLicn8u7q7xbaDmg/+DHUM+e6rbU5coy8rDprcMtzAMIEujaBY/ck14Vxg6SqsNSpNoT1Z362eUjEHpcxx61ubBQCZ7u9w7n+zVl0OtOnx4HYHEQxFU24iXB7a7ZVDeFjjrsYqndijZ57nDccFv5XhhlBLPJppxLi8GaL5CKxKqiuy7if1/rXM5TMtR+ojrKYhnwZqBHxML7aBe6qCqV32ja0F2k/OOxNeS0YWU2fUfcjwvUCKxP8E5zcMJWHSeceHUuul1hO2F4bb5vkMRVKUV+2ymkBHHSmc2sqWsPd9U5EhXoASH7oOYRa3YhHmGbwBoIFw13VLP19p7F+J0l7CZZjhs44/nYRtHJYRAmK5HUPYpRY7PHawqd2OoTrj+VCFihAOucXKt7OYmskPOJf+HGZbBh4aYJGJHSRqi4KfZyou79QBICHs7ZaROcrDz1H5GD/tMRMWe0JE+C5b8/Y48BCWVXG/MXq0oHQZ7YbPxdlU+i2MtKcGP2IHfMIPvKJRpNU5qfOo6WNRluHFLA74RBpTNIrzpUj6NKNGvGIs4qHzKXHphvypf8jRynm3xsaK6MrZqRoQPMO4mHDJq3XC1X3ywiT6Ry7sqWIOpzEsRI0zNX2cIYnlwiVLx29Ps4IX3o/1tRdNG9uKBGtCfedO1B1hqGXMw+5TYhzIBZbXfTXd/Gu6emwtoIFgb1HuBjTTTv5nB2m7trr+EEC/zferysAgLj1xIfkLYYBnBRC3ChuTdwDgykSZyx1moVAiS/F7kjMOlKrpla+NjEn6V3OWchlfoMKU5qfKpYP4BV6SJoe0GaQObqc/vA4UrkUc6Tesky5yikANVkv0cyuI/GG5q7QlJGvFpD1FESlQ+VDVuwiXnH9mxgCvBKsdp3POSNUYXPsXhGjWDDXClYCR08NaCHvP0vc4AVDUUhQkPDg2tmCc6gFEbdqFLtcQYTe6HdBQeG/MdMbWfzjLyRLHAklFqVFXb3NAuNGjx9txxvwr9SUCLmomWMhsgXApQZgr3jLpeR1WY/6wAAAACsE4qkuNVGpQAB5QfMOAAAamcfIbHEZ/sCAAAAAARZWnicEw3JSM1NLdYNSk13SU1LLM0p0StKTWcYBSME+MhAaB4W7PITSlZfYGIDAOQuCvesPTlqAQAAAAIAAAAxAAAADAQAAAAAAAABAAAAAAAAAAAAAAA
+
+[AuthorEncoded]
+iCandy_Junior 040_80.png=7942,10704
+Logo=iCandy_Junior 040_80.png
+
+[Files-System32]
+Transparent.ico=217779,4684
+
+[EncodedFile-Files-System32-Transparent.ico]
+lines=1
+0=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
+1=dmLZ2jxzS89x4CoQWx3ANK19Rx/jYK6v05qg289WqK8z4I5Q1QJD3tEG359UoZUVyOZifLXBYq0ulPpY1L6eQaD23/6KOAMEm0hqF1vDGu10lazpB4M+70CIYVLUNzadGd1+/w6WDKi6mvdvP6Aha4ubiMslIqK9hwAMl1fzARYDcgyoViJzzR9rCcJzpxldi/949sAHO3jaIig2XQS86InISf7/UM37Xv1Q/222wgyOroTAKNipJiaLBDco+J0UIM9GAvurR4dIcLGanWmM7n9ScN+QgyhWgAPhxRX4l1eUyjBvu8JkR6HzKGWQ53sL46A6Re3Mkb8Mox65gl8YoEveMiz+rB8r+/IQDa+f5cnJ5fpQ9r0zM4AsuEzM3pCKO+USp6/mTz1QLbpwpGEy0PEPCCnintW+ShTglrPyPhKLk6tifdCeAqGWC4AENgTyFY1Y26AAHEGrOlDQDuB6YGscRn+wIAAAAABFlaeJzjDylKzCsuSCxKzSvRy0zOZxgFIwpsDmIG0xm82OWnMokHMrEBAAZhCI+OwAn2AQAAAAIAAAAsAAAAaA0AAAAAAAABAAAAAAAAAAAAAAA
+[EncodedFile-AuthorEncoded-iCandy_Junior 040_80.png]
+lines=2
+0=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
+1=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
+2=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
+
+[EncodedFile-InterfaceEncoded-Advanced_Disabled_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABjElEQVQ4y43Tz4tNcRgG8M+dOTGuRLhF9hi/h81IKRuR1IhSxIIssPAn3J1mb2oSNso0O2oWiIwNu2FWw21YkEm6ykwmv5XNc+rQnfLW6Zy+z/d9zvO+z/vWms2mBeIcjuMrhnC/06Wi8r0Ku/EIX9DACixHbwgW4wieo1UlWIsLOIWbmEA/fuI3NmMv9uEknmAQrZKgL8mvcAjH8A2LgveHYB5vQvSgSvAUI9iPOdQwhcngO7Ap2MqoHKuWMIu7+XMX7uAGZoKvw1kMoAfP8LkkOJAaN+I7XmAY7UqDZ3K2IUrOpLEfC1zEGvyI9Ml/kstoB9seh47iU4F6Erv8X9TiTjdqBUaxOjPQk4Y1OqhoBPuFt5mF+QLXcmEAl1Pb+QWa2BsFj3G96sIy7MzYzoVsfQcbZ7EUu3AP70qCwziN6fhcx7YkSs319KmNgyG/WhJMYBx7cCujeiIquvEeV+LApezLw2oJrcx2H25nHrZiC5akaeN5XuNl3n9tY6vcsMQUPqTm6cr5WNWaPzh+YcvU7DU1AAAAAElFTkSuQmCCeJyTcEwpS8xLTk2Jd8ksTkzKATIMzfQK8tIZRsFIALcY8ct/c/M8xcgAANAVDAqUbKQXAQAAAAIAAAAvAAAA2gEAAAAAAAABAAAAAAAAAAAAAAA

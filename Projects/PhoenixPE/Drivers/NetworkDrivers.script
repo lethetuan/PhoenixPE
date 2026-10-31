@@ -1,0 +1,523 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This script is part of the PhoenixPE project and distributed under the MIT License.
+//
+// Additional 3rd party tools, encoded files, and programs used by the project are the property
+// of their respective authors and may be subject to their own license agreement.
+//
+// Copyright (c) 2014-2026 Jonathan Holmgren (Homes32)
+// Based on work by ChrisR
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=Network Drivers
+Description=Load additional Features on Demand network drivers included with Windows.
+Author=Homes32
+Level=6
+Selected=False
+Mandatory=False
+Version=1.4.0.0
+Date=2024-02-06
+
+[Variables]
+%NetworkDriverRegCache%="%ProjectCache%\NetworkDrivers"
+
+[Process]
+Echo,"Preparing for Network driver integration..."
+
+If,%cb_EnableHiveCache%,Equal,False,Begin
+  Echo,"Network Drivers Registry Cache: DISABLED"
+  DirDeleteEx,%NetworkDriverRegCache%
+End
+
+// We need this to compare with the .Cache version. This way we can force a rebuild if this script changes.
+IniRead,%ScriptFile%,"Main","Version",%ScriptVer%
+
+If,Not,ExistFile,"%NetworkDriverRegCache%\.Cache",Run,%ScriptFile%,BuildRegistryCache
+
+// Check for stale cache and rebuild if needed
+IniRead,"%NetworkDriverRegCache%\.Cache","NetworkDrivers","Version",%RegCacheVer%,"Default=0.0.0.0"
+
+If,%RegCacheVer%,Equal,%ScriptVer%,Echo,"Network Drivers Reg Cache: ENABLED (v%RegCacheVer%)"
+Else,Begin
+  Echo,"Network Drivers Registry Cache: STALE (v%RegCacheVer%)#$x#$xRebuilding the Network Drivers registry cache..."
+  DirDeleteEx,%NetworkDriverRegCache%
+  Run,%ScriptFile%,BuildRegistryCache
+End
+
+Set,%RegCacheVer%,Nil
+Set,%ScriptVer%,Nil
+
+// Extract Drivers
+Run,%ScriptFile%,ExtractDrivers
+
+// Load the Main Drivers Registry Hive and Import from Cache
+RegHiveLoad,Tmp_Drivers,%RegDrivers%
+RegImport,"%NetworkDriverRegCache%\DRIVERS.reg"
+RegHiveUnload,Tmp_Drivers
+
+[#BuildRegistryCache#]
+// ===============================================================================================================================
+// Name...........: BuildRegistryCache
+// Description....: Build a registry cache for network drivers.
+//                  for each driver we copy the database entries from Tmp_Installer_Drivers into a temporary hive, then
+//                  export the temp hive to a .reg file that can be quickly imported on subsequent builds.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: 
+// ===============================================================================================================================
+[BuildRegistryCache]
+Echo,"Building the Network Driver Database...#$x#$xThis can take awhile, please be patient."
+
+// Create an Empty Drivers Hive.
+DirMake,%NetworkDriverRegCache%
+FileCreateBlank,"%ProjectTemp%\NetworkDrivers\DRIVERS"
+RegHiveLoad,Tmp_Drivers,"%ProjectTemp%\NetworkDrivers\DRIVERS"
+RegHiveLoad,Tmp_Install_Drivers,%RegInstallDrivers%
+
+RegWrite,HKLM,REG_NONE,"Tmp_Drivers\DriverDatabase\DeviceIds"
+RegWrite,HKLM,REG_NONE,"Tmp_Drivers\DriverDatabase\DriverFiles"
+RegWrite,HKLM,REG_NONE,"Tmp_Drivers\DriverDatabase\DriverInfFiles"
+RegWrite,HKLM,REG_NONE,"Tmp_Drivers\DriverDatabase\DriverPackages"
+
+///////////////////////////////////////////////////////////////////////////////////
+// Build Driver Database
+
+If,%SourceArch%,Equal,x64,Begin
+  
+  If,%cb_Broadcom%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,bcmwdidhdpcie.inf
+    RegCopyDriver,netbc63a.inf
+    RegCopyDriver,netbc64.inf 
+  End
+  
+  If,%cb_Intel%,Equal,True,Begin
+    // Ethernet
+    RegCopyDriver,net1ic64.inf
+    RegCopyDriver,net2ic68.inf
+    // WiFi
+    RegCopyDriver,netwbw02.inf
+    RegCopyDriver,netwew00.inf
+    RegCopyDriver,netwew01.inf
+    RegCopyDriver,netwlv64.inf
+    RegCopyDriver,netwns64.inf
+    RegCopyDriver,netwsw00.inf
+    RegCopyDriver,netwtw02.inf
+    RegCopyDriver,netwtw04.inf
+    RegCopyDriver,netwtw06.inf
+    RegCopyDriver,netwtw08.inf
+  End
+  
+  If,%cb_Marvel%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,mrvlpcie8897.inf
+  End
+  
+  If,%cb_Qualcomm%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,athw8x.inf
+    RegCopyDriver,netathrx.inf
+    RegCopyDriver,netathr10x.inf
+  End
+  
+  If,%cb_Ralink%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,netr28ux.inf
+    RegCopyDriver,netr28x.inf
+    RegCopyDriver,netr7364.inf
+  End
+  
+  If,%cb_Realtek%,Equal,True,Begin
+    // Ethernet
+    RegCopyDriver,rtcx21x64.inf
+     // Wifi
+    RegCopyDriver,net8185.inf
+    RegCopyDriver,net8187bv64.inf
+    RegCopyDriver,net8187se64.inf
+    RegCopyDriver,net8192se64.inf
+    RegCopyDriver,net8192su64.inf
+    RegCopyDriver,net819xp.inf
+    RegCopyDriver,netrtwlane01.inf
+    RegCopyDriver,netrtwlane_13.inf
+    RegCopyDriver,netrtwlane.inf
+    RegCopyDriver,netrtwlanu.inf
+  End
+End
+Else,Begin
+  // x86
+  
+  If,%cb_Broadcom%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,bcmwdidhdpcie.inf
+    RegCopyDriver,netbc63.inf
+    RegCopyDriver,netbc64.inf
+  End
+  
+  If,%cb_Intel%,Equal,True,Begin
+    // Wifi
+    RegCopyDriver,netwbn02.inf
+    RegCopyDriver,netwen00.inf
+    RegCopyDriver,netwen01.inf
+    RegCopyDriver,netwlv32.inf
+    RegCopyDriver,netwns32.inf
+    RegCopyDriver,netwsn00.inf
+    RegCopyDriver,netwtn02.inf
+    RegCopyDriver,netwtn04.inf
+  End
+  
+  If,%cb_Marvel%,Equal,True,Begin
+    // Marvel
+  End
+  
+  If,%cb_Qualcomm%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,athw8.inf
+    RegCopyDriver,netathr.inf
+    RegCopyDriver,netathr10.inf
+  End 
+  
+  If,%cb_Ralink%,Equal,True,Begin
+    // WiFi
+    RegCopyDriver,netr28.inf
+    RegCopyDriver,netr28u.inf
+    RegCopyDriver,netr73.inf
+  End
+  
+  If,%cb_Realtek%,Equal,True,Begin
+    // Ethernet
+    RegCopyDriver,rtcx21x86.inf
+    // WiFi
+    RegCopyDriver,net8187bv32.inf
+    RegCopyDriver,net8187se86.inf
+    RegCopyDriver,net8192se32.inf
+    RegCopyDriver,net8192su32.inf
+    RegCopyDriver,net819xp.inf
+    RegCopyDriver,net8185.inf
+    RegCopyDriver,netrtwlane01.inf
+    RegCopyDriver,netrtwlane_13.inf
+    RegCopyDriver,netrtwlane.inf
+    RegCopyDriver,netrtwlanu.inf
+  End
+End
+
+// Export the hive to a .reg file
+RegExport,HKLM,"Tmp_Drivers\DriverDatabase","%NetworkDriverRegCache%\DRIVERS.reg"
+IniWrite,"%NetworkDriverRegCache%\.Cache","NetworkDrivers","Version",%ScriptVer%
+
+RegHiveUnLoad,Tmp_Drivers
+RegHiveUnload,Tmp_Install_Drivers
+
+[#ExtractDrivers#]
+// ===============================================================================================================================
+// Name...........: ExtractDrivers
+// Description....: Extract Network Drivers
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: We extract drivers using RequireDriver with the NOREG flag to skip copying the registry driver database so we can
+//                  save time by during subsequent builds by using a separate registry cache.
+//                  RequireDriver without the NOREG flag copies registry entries on the fly and is much slower with large operations then using a cache.
+//
+//                  Don't forget when adding new drivers to check the .inf and make sure the .sys matches the .inf name, otherwise you need to manually
+//                  include the correct .sys file with RequireFileEx
+// Related........: 
+// ===============================================================================================================================
+[ExtractDrivers]
+Echo,"Building a list of required files..."
+
+// Driver Files to Extract
+If,%SourceArch%,Equal,"x64",Begin
+ 
+  If,%cb_Broadcom%,Equal,True,Begin
+    // WiFi
+    RequireDriver,bcmwdidhdpcie.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Bcmpciedhd63.sys
+    RequireDriver,netbc63a.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Bcmwl63al.sys
+    RequireDriver,netbc64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Bcmwl63a.sys
+  End
+  
+  If,%cb_Intel%,Equal,True,Begin
+    // Ethernet
+    RequireDriver,net1ic64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\E1i68x64.sys
+    RequireDriver,net2ic68.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\E2f68.sys
+    // WiFi
+    RequireDriver,netwbw02.inf,NOREG
+    RequireDriver,netwew00.inf,NOREG
+    RequireDriver,netwew01.inf,NOREG
+    RequireDriver,netwlv64.inf,NOREG
+    RequireDriver,netwns64.inf,NOREG
+    RequireDriver,netwsw00.inf,NOREG
+    RequireDriver,netwtw02.inf,NOREG
+    RequireDriver,netwtw04.inf,NOREG
+    RequireDriver,netwtw06.inf,NOREG
+    RequireDriver,netwtw08.inf,NOREG
+  End
+  
+  If,%cb_Marvel%,Equal,True,Begin
+    // WiFi
+    RequireDriver,mrvlpcie8897.inf,NOREG
+  End
+  
+  If,%cb_Qualcomm%,Equal,True,Begin
+    // WiFi
+    RequireDriver,athw8x.inf,NOREG
+    RequireDriver,netathrx.inf,NOREG
+    RequireDriver,netathr10x.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Qcamain10x64.sys   
+  End
+  
+  If,%cb_Ralink%,Equal,True,Begin
+    // WiFi
+    RequireDriver,netr28ux.inf,NOREG
+    RequireDriver,netr28x.inf,NOREG
+    RequireDriver,netr7364.inf,NOREG
+  End
+  
+  If,%cb_Realtek%,Equal,True,Begin
+    // Ethernet
+    RequireDriver,rtcx21x64.inf,NOREG
+     // Wifi
+    RequireDriver,net8185.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtl85n64.sys
+    RequireDriver,net8187bv64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\rtl8187B.sys
+    RequireDriver,net8187se64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtl8187se.sys
+    RequireDriver,net8192se64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtl8192se.sys
+    RequireDriver,net8192su64.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\RTL8192su.sys
+    RequireDriver,net819xp.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\rtl819xp.sys
+    RequireDriver,netrtwlane01.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtwlane01.sys
+    RequireDriver,netrtwlane_13.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtwlane_13.sys
+    RequireDriver,netrtwlane.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\Rtwlane.sys
+    RequireDriver,netrtwlanu.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\rtwlanu.sys
+  End 
+End
+Else,Begin
+  // x86
+  
+  If,%cb_Broadcom%,Equal,True,Begin
+    // WiFi
+    RequireDriver,bcmwdidhdpcie.inf,NOREG
+	RequireFileEx,AppendList,Bcmpciedhd63.sys
+    RequireDriver,netbc63.inf,NOREG
+	RequireFileEx,AppendList,Bcmwl63l.sys
+    RequireDriver,netbc64.inf,NOREG
+	RequireFileEx,AppendList,Bcmwl63a.sys
+  End
+  
+  If,%cb_Intel%,Equal,True,Begin
+    // Wifi
+    RequireDriver,netwbn02.inf,NOREG
+    RequireDriver,netwen00.inf,NOREG
+    RequireDriver,netwen01.inf,NOREG
+    RequireDriver,netwlv32.inf,NOREG
+    RequireDriver,netwns32.inf,NOREG
+    RequireDriver,netwsn00.inf,NOREG
+    RequireDriver,netwtn02.inf,NOREG
+    RequireDriver,netwtn04.inf,NOREG
+  End
+  
+  If,%cb_Marvel%,Equal,True,Begin
+    // Marvel
+  End
+  
+  If,%cb_Qualcomm%,Equal,True,Begin
+    // WiFi
+    RequireDriver,athw8.inf,NOREG
+    RequireDriver,netathr.inf,NOREG
+    RequireDriver,netathr10.inf,NOREG
+	RequireFileEx,AppendList,Qcamain10x86.sys
+  End
+  
+  If,%cb_Ralink%,Equal,True,Begin
+    // WiFi
+    RequireDriver,netr28.inf,NOREG
+    RequireDriver,netr28u.inf,NOREG
+    RequireDriver,netr73.inf,NOREG
+  End
+  
+  If,%cb_Realtek%,Equal,True,Begin
+    // Ethernet
+    RequireDriver,rtcx21x86.inf,NOREG
+    // WiFi
+	RequireDriver,net8185.inf,NOREG
+	RequireFileEx,AppendList,Rtl85n86.sys
+    RequireDriver,net8187bv32.inf,NOREG
+    RequireDriver,net8187se86.inf,NOREG
+	RequireFileEx,AppendList,Rtl8187se.sys
+    RequireDriver,net8192se32.inf,NOREG
+	RequireFileEx,AppendList,Rtl8192se.sys
+    RequireDriver,net8192su32.inf,NOREG
+    RequireDriver,net819xp.inf,NOREG
+	RequireFileEx,AppendList,Rtl819xp.sys
+    RequireDriver,netrtwlane01.inf,NOREG
+	RequireFileEx,AppendList,Rtwlane01.sys
+    RequireDriver,netrtwlane_13.inf,NOREG
+	RequireFileEx,AppendList,Rtwlane_13.sys
+    RequireDriver,netrtwlane.inf,NOREG
+	RequireFileEx,AppendList,Rtwlane.sys
+    RequireDriver,netrtwlanu.inf,NOREG
+	RequireFileEx,AppendList,\Windows\System32\Drivers\rtwlanu.sys
+  End
+End
+
+// Extract
+RequireFileEx,ExtractList
+
+[#PurgeRegCache#]
+// ===============================================================================================================================
+// Name...........: PurgeRegCache
+// Description....: Deletes the registry cache.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_PurgeRegCache, cb_Broadcom, cb_Intel, cb_Marvel, cb_Qualcomm, cb_Ralink, cb_Realtek
+// ===============================================================================================================================
+[PurgeRegCache]
+Echo,"Purging the registry cache..."
+DirDeleteEx,%NetworkDriverRegCache%
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_SetDefaultOptions
+// ===============================================================================================================================
+[SetDefaultOptions]
+WriteInterface,Value,%ScriptFile%,Interface,cb_EnableHiveCache,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Broadcom,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Intel,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Marvel,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Qualcomm,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Ralink,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_Realtek,True
+Run,%ScriptFile%,PurgeRegCache
+
+[#ToggleAdvancedOptions#]
+// ===============================================================================================================================
+// Name...........: ToggleAdvancedOptions
+// Description....: Show/Hide advanced options in the script interface.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_AdvancedOptions
+// ===============================================================================================================================
+[ToggleAdvancedOptions]
+Message,"There are no advanced options available for this script."
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_ScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"This script is responsible for adding network drivers included as Features on Demand (FOD) with Windows. The driver database 'Hive' may be cached to speed up future builds."
+
+[#Interface#]
+// ===============================================================================================================================
+// Name...........: Interface
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[Interface]
+btn_PurgeCache=,1,8,479,5,25,25,PurgeRegCache,Trash.ico,True,"__Remove all cached registry hives. A new registry cache will be created the next time you build the project."
+btn_SetDefaultOptions=,1,8,543,5,25,25,SetDefaultOptions,SetDefaults_16.png,True,"__Restore Defaults"
+btn_AdvancedOptions=,1,8,574,5,25,25,ToggleAdvancedOptions,Advanced_Disabled_16.png,True,"__Show Advanced Options"
+btn_ScriptInfo=,1,8,605,5,25,25,ShowScriptInfo,Help_16.png,True,"__Script Info"
+cb_EnableHiveCache="Cache Driver Database",1,3,5,50,140,15,True,"__Cache the processed driver database registry hives instead of recreating them at every build.#$x#$xDisabling this option will significantly increase build time."
+bvl_FOD-Drivers="Include Drivers",1,12,5,90,160,180,8,Bold
+cb_Broadcom=Broadcom,1,3,15,110,140,18,True,_PurgeRegCache_,True
+cb_Intel=Intel,1,3,15,130,140,18,True,_PurgeRegCache_,True
+cb_Marvel=Marvel,1,3,15,150,140,18,True,_PurgeRegCache_,True
+cb_Qualcomm=Qualcomm,1,3,15,170,140,18,True,_PurgeRegCache_,True
+cb_Ralink=Ralink,1,3,15,190,140,18,True,_PurgeRegCache_,True
+cb_Realtek=Realtek,1,3,15,210,140,18,True,_PurgeRegCache_,True
+
+[InterfaceEncoded]
+Trash.ico=1150,1212
+SetDefaults_16.png=2197,3036
+Help_16.png=2830,3868
+Advanced_Disabled_16.png=474,744
+
+[EncodedFile-AuthorEncoded-kcmpci.png]
+lines=3
+0=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
+1=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
+2=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
+3=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
+
+[AuthorEncoded]
+kcmpci.png=11204,15032
+Logo=kcmpci.png
+
+[EncodedFile-InterfaceEncoded-Trash.ico]
+lines=0
+0=eJx10/1PEnEcB/DzYT2s7GHNHpYrY2221dbjVlsPs9asNVdtPfsHNEtt+ZRsyXjyNAFBHgQjKQi0YEIiBmJmoM5MwTISrOzB0jSndRToYctPd7Yro/re3vfD9+51973P53sIEkEcixYhxDkeSY1GkKUIgqwjQkwRMz/nyZEYjfw1Dh08MGff3sSYlDOndyQkJAiIyIko/hM5jUbjxsWtXL5t65b5R48cnkU+o1wiijx54jjb5eoEj8cDvT4f4DgOg4ODYLXWQUWFEszmGnj6tBtkMhnQ4uOXZV9Ii5i5DpTFyFKpVFMajQa0Wi1YLBYwGAwgkYgBRQugtFQEarUaOGxWIHHXzsXh36EuZpx67+vGxj68w0IT41goFMI+j41ifZ4n/h5XO9bV0jQdvbT4MW31qiXh3iTnn6d8T2NtsFHKDnVZTcG7gsu4hUfHOx/Yp71NI38VHRm5NNzfEjDyST/U1+u3C/NDtuKcSVetPlgvZOBmNCvUqCkPkP7+7RsDC+bNXRPuDWKuiPQ9TdavzUoejo2M+Mn1v3rWjTVXKoPmwks46R2mqqHYhTEbw3217IqG9B57TcBemP6NWMcX0r/xPcNqWecnbSLmBOlb64wfaSti91wVFP5R/3taeR3ph1+/wF4+dAbc+oqJkcEBrNOkCzq15cF2W42f9O0NltENa+KS5byCP7zluqSNqt/rR86Ag5/5zV1TOd6Apk/aRQycqr/L0fBpx/q1KWU8NJKyrfW1Ea13tL2Ux8cD2AuHNeg26cbbNJKJ7pYmP+XdzfexpO2bzmWnpUZRXlcmnNNpqx74V//7+55jM/tP5tj+3fnJB5NmU76Qw0rj83lTErEYhCUloFQqp/egQqEADocDubk5QKfToaioCMTEPedSU8cOHUiaR3leEcro6HgEPq8XHne5YXh4CIj3Q39/P9TX20ClugY6nRaczU7wenuIf0D6PetC+q+/UaVUbMjIyLgnlUqnyH1ebdCDvqoSblXqpve+Ql4GIqEQTEYjCPh8yM3JloX3nxzE2jfT8/K4N9XqD1U6nYfPK85mMpk3Mi9ezEMLCoxcDvssyuXGhzsW0UlH1D8S8Tus8BDX3xIV/AEUry6xeJzjDClKLM7Qy0zOZxgFIxDUsUBoV2bs8iFCkXoMbAB8oQUybAHR5gEAAAACAAAAJAAAAEUDAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-SetDefaults_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAF+mlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDUgNzkuMTYzNDk5LCAyMDE4LzA4LzEzLTE2OjQwOjIyICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE5LTEwLTIxVDE3OjIxOjEyLTA1OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0xMC0yMVQxNzoyMTo0Ny0wNTowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0xMC0yMVQxNzoyMTo0Ny0wNTowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDowN2Y0M2IwNy0xODU0LWE2NDAtYTAzZS1hNDExMzZhMDQ4MDYiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDowNzhkNDM1MC04NWRmLTg4NDQtOTY0Mi1lYTIxNmU3YjUwNDIiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmYwMzUwODcyLWFiZTEtZTk0MC05MTY0LWRjNGMzN2M4YjA5NSIgc3RFdnQ6d2hlbj0iMjAxOS0xMC0yMVQxNzoyMToxMi0wNTowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDowN2Y0M2IwNy0xODU0LWE2NDAtYTAzZS1hNDExMzZhMDQ4MDYiIHN0RXZ0OndoZW49IjIwMTktMTAtMjFUMTc6MjE6NDctMDU6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6tuiutAAACQUlEQVQ4jaXRy04TURwG8L5Ao6WpXEsslBA6NPScOTMWXoIF3UB0qWvegEU3JaJVqS2LRttCA8HaWqHlTlutxtILxJhGo93BSmK8TFy48PPMAG0N7JjkNzk5/+98mYsOgO4ytBvbYydK3D5rZwfMzRW541NFbU+dlVg9f1HBOCszhcN/Stw+g+ODQ2EVnjlXUGCqMQ7nvGMY3h+G9ZUV5uUu9L/ux0h5ZIzvNxXkmZHDRZwFJwxbBrjiLuy9L+DOxm10ZbrA3jBjvUDMiB4pK2EgOwAhJ0Bdi7si5KyM7kw3ekO9OKwdQr2m1qegf6mHmBU99QJpU6ra1+1wJm9gMC7AsmaBc9sJ+7YdhqgB8XxCO5zOr6Ftvg2OHQfEDbFaL7ClbApdpsjl8hq6QNCx0gFjrAWTsUngC/Cx9BliWERnshPyqgxxRVTqBUJCUAbnBaRTW/iR/4MXiRTMfjOEgA1v02XUdo5wM3QLV6NXICdl0OdU1ShgS6xqiV6H5JewubqLb5XfWIgv4Uksgq/FX5henEHLnAFDz4ZAF+mZxivQMPVIUQnXgiYQL0G5cAD85JPvQKV4AOs9KyxhC1iEgUbomcZHJEFi5CCFJBh9RvS5+1D7VAP+AqO+Uejv6yE9laBmmjR+I5kjOhIgLuInkIMyWr2tkGdkTAQmYL5rBg1S8Hkzl3qmUfCYnPCRcfKIKLJfRo+3B6ZpE6ifP+4sL5glKkXLnOYvKtCRh6SdPCBursgda7za2q3NfER3ruAy/gHl1EFdO9bspgAAAABJRU5ErkJggnicEwpOLXFJTUsszSkpjjc00yvIS2cYBSMHTOXAL9+Ym3KPkQEAQe4JfsPl+JwBAAAAAgAAACoAAACVCAAAAAAAAAEAAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Help_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHAWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAxOC0wMi0yMlQxNjo1OTo1MC0wNjowMCIgeG1wOk1vZGlmeURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6YWQ2OTFmMzItY2FiZC1hZTQzLTlmNjAtMzk5YjQyOTBlMTNiIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6OTBjZmFlNjAtYWJhZS1iNTQ3LWIyODEtOWYxNzg2YzM1NjQ2IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIj4gPGRjOmNyZWF0b3I+IDxyZGY6U2VxPiA8cmRmOmxpPkhvbWVzMzI8L3JkZjpsaT4gPC9yZGY6U2VxPiA8L2RjOmNyZWF0b3I+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIiBzdEV2dDp3aGVuPSIyMDE4LTAyLTIyVDE2OjU5OjUwLTA2OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo4MmNhNWFiYy05Mzg0LWUwNGYtOGE5NC0yMTk1NjY1NjY1YTUiIHN0RXZ0OndoZW49IjIwMTgtMDItMjJUMTc6MTA6MDUtMDY6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFkNjkxZjMyLWNhYmQtYWU0My05ZjYwLTM5OWI0MjkwZTEzYiIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MzowNC0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PozE0ngAAAOzSURBVDgRBcF9TJR1AMDx7/N7nnuOez/kxUJe4q2pWEgoykxLpqkzx6bhlszN/soZ/dE0W9bWZrVZ2WYt/ypn5VrmzDkZZk2INoRyNJEUUDg4TuC4g7vjjrvjHu7uefp8pJljb2KymMlr2g5rq5H0ZQj6V+mzwYOh4qrGbDyadqN1GfOhK7Hp2cV4VQWRE5+SF42QUVUUAEOSkDJZsMvuQEg68/OgfOBPjzvf4xnDpArW1xQe2rxS/XB/Q8kPzlnv6blYXJeEAEB+Z8MGTOllrE0b13V4uXXk3NDuS3/4rYmoTnGeDUk30f1PkNvDmntQz3/5mecKm2o8//6WGByNY7ehmI0Mec9Xlvw6rf51+Mv7K3IzBmff2sgbB2rJdZpJpZa5NzzJR+fv0dMxwqPZqq0XT37cvqbo/JapvpFl+fPtGxhv2PHjkauxuqJMFpdL5qtTO3A7ZMa8fnJtBmUlKissaR75UmgzER66K4qa1ttVqafvttBLi9d868lpTvkXWVloxunI4cLVfg6/e43GQ9c4e3GAWCDECjVJYikBqsTd30e4mSw9aq0tt4ontvx9vZ4lCi0SmayO2ST45dYYfQNR5r0ZkokkTruG50mYwcdRYnGNwHiQjmHdpW3b2iYixZV74sFFTMJAUWQkIZHSdHwTi5w8VsXpo2WMjgU5ezmA1e7G5bCQ67IyN7FApm7TdpFWFIvIGiiKjCwkxn0R7g/O09pSzmfHy+m6M8He40MMzTgoL3ZiiBzUHDsm1YJsMUtCHfmvU813oMiCJ/4Y4WgKcszUP2sFC1zuijA6qlJT5ULHhGq2ogsHT6+uQNztva8UxWba66rrT10fnkMsazhtKkIxOPeTB99kmP5HOgWVuUjChCzMWK0qWtLOltUWTe3u/VoUKNm/D1Yu9U9rglQ8jWwSxGMp9r5Uxqu7XqTt8CYcFkEqo+ByWPEFFNbWV/Oa5cHV2FR4WgQmw2yd6Gl7v7WIuTmZQDBJPLFMy+5KtjWWcGRfAZKRQVWt+OYkYvYyPtm1EOHCF+8FH3iR366vRQuEppsb3SPyuqr9XQNLUjaR5nr3FOGFBT74ZoBRv5m47iSvZBXfn3DP1E5d2TP43Y3Hsm4gH9/8AlmbHWMp9XBnafbOtj01lSa7rdQbynDrxgQR3DQ0VvB6UwFndgban5q82eqZiD6QRscR2SwKgGToaLKKP5Tu3Gib7Fxd4Ws5+Upd82JuwypTNqMXJANeOTxwCd9i91g4jaSawTAA+B9saZuyCHkkigAAAABJRU5ErkJggnic4/ZIzSmINzTTK8hLZxgFIw7wceOXd9V7kMTIAAAhOQWdbDOZ9gEAAAACAAAAIwAAAA4LAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Advanced_Disabled_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABjElEQVQ4y43Tz4tNcRgG8M+dOTGuRLhF9hi/h81IKRuR1IhSxIIssPAn3J1mb2oSNso0O2oWiIwNu2FWw21YkEm6ykwmv5XNc+rQnfLW6Zy+z/d9zvO+z/vWms2mBeIcjuMrhnC/06Wi8r0Ku/EIX9DACixHbwgW4wieo1UlWIsLOIWbmEA/fuI3NmMv9uEknmAQrZKgL8mvcAjH8A2LgveHYB5vQvSgSvAUI9iPOdQwhcngO7Ap2MqoHKuWMIu7+XMX7uAGZoKvw1kMoAfP8LkkOJAaN+I7XmAY7UqDZ3K2IUrOpLEfC1zEGvyI9Ml/kstoB9seh47iU4F6Erv8X9TiTjdqBUaxOjPQk4Y1OqhoBPuFt5mF+QLXcmEAl1Pb+QWa2BsFj3G96sIy7MzYzoVsfQcbZ7EUu3AP70qCwziN6fhcx7YkSs319KmNgyG/WhJMYBx7cCujeiIquvEeV+LApezLw2oJrcx2H25nHrZiC5akaeN5XuNl3n9tY6vcsMQUPqTm6cr5WNWaPzh+YcvU7DU1AAAAAElFTkSuQmCCeJyTcEwpS8xLTk2Jd8ksTkzKATIMzfQK8tIZRsFIALcY8ct/c/M8xcgAANAVDAqUbKQXAQAAAAIAAAAvAAAA2gEAAAAAAAABAAAAAAAAAAAAAAA

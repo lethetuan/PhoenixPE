@@ -1,0 +1,708 @@
+[License]
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This script is part of the PhoenixPE project and distributed under the MIT License.
+//
+// Additional 3rd party tools, encoded files, and programs used by the project are the property
+// of their respective authors and may be subject to their own license agreement.
+//
+// Copyright (c) 2014-2026 Jonathan Holmgren (Homes32)
+//
+// Based on work by Flower3, ied206, sp-star, Zerojinny with contributions from ChrisR 
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Main]
+Title=IME Support
+Description=Input Method Editor (IME) Support and Language Bar settings.
+Author=Homes32
+Level=4
+Selected=False
+Mandatory=False
+Version=2.1.0.0
+Date=2025-03-02
+
+[Variables]
+%Debug%=False
+
+[#WinRT-Remarks#]
+// ===============================================================================================================================
+// Starting from v19H1, Windows IME depends on `Windows.UI.Core.TextInput` WinRT API.
+// WinRT API is used to draw popup window of IME, and breaks several IME features.
+// - Korean IME: Basic hangul typing works. Hanja conversion, special character input is broken.
+// - Japanese IME: Kana typing crashes ctfmon.
+// ===============================================================================================================================
+
+[Process]
+Echo,"Configuring IME common components..."
+
+RegHiveLoad,Tmp_Software,%RegSoftware%
+RegHiveLoad,Tmp_Default,%RegDefault%
+RegHiveLoad,Tmp_System,%RegSystem%
+RegHiveLoad,Tmp_Install_Software,%RegInstallSoftware%
+
+Run,%ScriptFile%,Process-Common
+If,%SourceLang%,Equal,"ja-JP",Run,%ScriptFile%,Process-ja-JP
+Else,If,%SourceLang%,Equal,"ko-KR",Run,%ScriptFile%,Process-ko-KR
+Else,If,%SourceLang%,Equal,"zh-CN",Run,%ScriptFile%,Process-zh-CN
+Else,If,%SourceLang%,Equal,"zh-TW",Run,%ScriptFile%,Process-zh-TW
+
+If,%Debug%,Equal,True,Begin
+  // For developers wishing to test with all Asian languages...
+  Run,%ScriptFile%,Process-ja-JP
+  Run,%ScriptFile%,Process-ko-KR
+  Run,%ScriptFile%,Process-zh-CN
+  Run,%ScriptFile%,Process-zh-TW
+End
+
+Run,%ScriptFile%,ConfigureLangToolbar
+
+ExtractAllFiles,%ScriptFile%,Cmd,%TargetSystem32%
+AddAutoRun,PostShell,HideNoWait,"IME Toolbar","StartCTFMon.cmd"
+
+RegHiveUnload,Tmp_Software
+RegHiveUnload,Tmp_Default
+RegHiveUnload,Tmp_System
+RegHiveUnload,Tmp_Install_Software
+
+[ConfigureLangToolbar]
+// ===============================================================================================================================
+// Name...........: ConfigureLangToolbar
+// Description....: Configure various options related to the IME toolbar.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[ConfigureLangToolbar]
+Echo,"Configuring the Language Toolbar..."
+
+// Show/Hide The IME Toolbar
+RegRead,HKLM,"Tmp_Default\Control Panel\Desktop","UserPreferencesMask",%PrefMask%
+If,%cmb_LangBarPos%,Equal,"Hidden",ApplyBitMask,%PrefMask%,6,0x000000,8
+Else,ApplyBitMask,%PrefMask%,6,0x000001,8
+RegWrite,HKLM,REG_BINARY,"Tmp_Default\Control Panel\Desktop","UserPreferencesMask",%^RET%
+
+// Toolbar Position
+If,%cmb_LangBarPos%,Equal,"Docked in the TaskBar",RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","ShowStatus",4
+Else,If,%cmb_LangBarPos%,Equal,"Floating On Desktop",RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","ShowStatus",0
+Else,If,%cmb_LangBarPos%,Equal,"Hidden",RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","ShowStatus",3
+Else,Halt,"INTERNAL LOGIC ERROR: No configuration defined for language bar position [%cmb_LangBarPos%]"
+
+// Show the Language bar as transparent when inactive
+If,%cb_LangBarTransparent%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","Transparency",64
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","Transparency",255
+
+// Show additional Language bar icons in the taskbar
+If,%cb_LangBarShowAdditionalIcons%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","ExtraIconsOnMinimized",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","ExtraIconsOnMinimized",0
+
+// Show text labels on the Language bar
+If,%cb_LangBarShowTxtLbls%,Equal,True,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","Label",1
+Else,RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\LangBar","Label",0
+
+[#Process-Common#]
+// ===============================================================================================================================
+// Name...........: Process-Common
+// Description....: Extract and Register Common IME Components
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Process-Common]
+Echo,"Building a list of required files..."
+
+///////////////////////////////////////////////////////////////////////////////////
+// Common IME Files
+
+RequireFileEx,AppendList,\Windows\IME\SPTIP.DLL
+RequireFileEx,AppendList,\Windows\IME\??-??\SpTip.dll.mui
+RequireFileEx,AppendList,\Windows\System32\IME\SHARED\
+RequireFileEx,AppendList,\Windows\System32\InputMethod\SHARED
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\clbcatq.dll
+RequireFileEx,AppendList,\Windows\System32\Ctfmon.exe
+RequireFileEx,AppendList,\Windows\System32\Globinputhost.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\dusmapi.dll
+RequireFileEx,AppendList,\Windows\System32\input.dll
+RequireFileEx,AppendList,\Windows\System32\inputHost.dll
+RequireFileEx,AppendList,\Windows\System32\inputLocaleManager.dll
+RequireFileEx,AppendList,\Windows\System32\inputService.dll
+RequireFileEx,AppendList,\Windows\System32\inputSwitch.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\Language*.dll
+RequireFileEx,AppendList,\Windows\System32\msctf.dll
+RequireFileEx,AppendList,\Windows\System32\msctfime.ime
+RequireFileEx,AppendList,\Windows\System32\MsCtfMonitor.dll
+RequireFileEx,AppendList,\Windows\System32\Msctfp.dll
+RequireFileEx,AppendList,\Windows\System32\MsctfuiManager.dll
+RequireFileEx,AppendList,\Windows\System32\msutb.dll
+RequireFileEx,AppendList,\Windows\System32\MSWB7.dll
+RequireFileEx,AppendList,\Windows\System32\MTF.dll
+RequireFileEx,AppendList,\Windows\System32\MTFServer.dll
+RequireFileEx,AppendList,\Windows\System32\NOISE.DAT
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\netprofm.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\npmproxy.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\TextInputMethodFormatter.dll
+RequireFileEx,AppendList,\Windows\System32\TextInputFramework.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\umpdc.dll
+RequireFileEx,AppendList,\Windows\System32\Windows.Globalization.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\Windows.Networking.HostName.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\Windows.UI.Core.TextInput.dll
+If,%SourceVer%,BiggerEqual,10.0.18363,RequireFileEx,AppendList,\Windows\System32\Windows.Web.dll
+RequireFileEx,AppendList,\Windows\System32\Winlangdb.dll
+RequireFileEx,AppendList,\Windows\System32\Winsta.dll
+If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\System32\WordBreakers.dll
+If,%SourceVer%,BiggerEqual,10.0.20251,RequireFileEx,AppendList,\Windows\System32\ime_textinputhelpers.dll
+If,%SourceVer%,BiggerEqual,10.0.26100,RequireFileEx,AppendList,\Windows\SystemApps\MicrosoftWindows.Client.Core_cw5n1h2txyewy\SystemTray\Assets\AXPIcons.ttf
+
+///////////////////////////////////////////////////////////////////////////////////
+// WoW64 
+
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  // Common IME Files
+
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\SHARED
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\clbcatq.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\Ctfmon.exe
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\dusmapi.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\Globinputhost.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\input.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\inputHost.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\inputLocaleManager.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\inputService.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\inputSwitch.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\Language*.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\msctf.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\msctfime.ime
+  RequireFileEx,AppendList,\Windows\SysWOW64\MsCtfMonitor.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\MsctfuiManager.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\msutb.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\MSWB7.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\MTF.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\NOISE.DAT
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\netprofm.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\npmproxy.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\TextInputMethodFormatter.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\TextInputFramework.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\umpdc.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\Windows.Globalization.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\Windows.Networking.HostName.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\Windows.UI.Core.TextInput.dll
+  If,%SourceVer%,BiggerEqual,10.0.18363,RequireFileEx,AppendList,\Windows\SysWOW64\Windows.Web.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\Winlangdb.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\Winsta.dll
+  If,%SourceVer%,BiggerEqual,10.0.18362,RequireFileEx,AppendList,\Windows\SysWOW64\WordBreakers.dll
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+
+///////////////////////////////////////////////////////////////////////////////////
+
+// Patch InputService to allow running in WinPE
+If,ExistFile,"%TargetSystem32%\InputService.dll",Begin
+  Echo,"Patching InputService..."
+  FileVersion,"%TargetSystem32%\InputService.dll",%InputServiceVersion%
+  If,%InputServiceVersion%,Bigger,10.0.18300,Begin
+    Binmay,"-u #$q%TargetSystem32%\InputService.dll#$q -s u:MiniNT -r u:ZiniNT"
+    If,Not,%^RET%,Equal,0,Echo,"ERROR: Patching [%TargetSystem32%\InputService.dll] failed. IME may not be available. The error returned was [%^RET%].",WARN
+  End
+End
+
+// Registry
+
+Echo,"Registering IME common components..."
+
+// Software Reg
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\CTF",HKLM,"Tmp_Software\Microsoft\CTF"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\15.0\Shared",HKLM,"Tmp_Software\Microsoft\IME\15.0\Shared"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\PlugInDict",HKLM,"Tmp_Software\Microsoft\IME\PlugInDict"
+If,%SourceVer%,BiggerEqual,10.0.18363,RegCopy,HKLM,"Tmp_Install_Software\Microsoft\FuzzyDS",HKLM,"Tmp_Software\Microsoft\FuzzyDS"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\InputMethod",HKLM,"Tmp_Software\Microsoft\InputMethod"
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\CTF",HKLM,"Tmp_Software\WOW6432Node\Microsoft\CTF"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\15.0\Shared",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\15.0\Shared"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\PlugInDict",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\PlugInDict"
+End
+
+[#Process-ja-JP#]
+// ===============================================================================================================================
+// Name...........: Process-ja-JP
+// Description....: Configure IME for Japanese
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+//                  joveler - Preliminary file & registry setup
+// Remarks........: WARNING: kana-mode only works on v1809 or lower.
+//                  On v19H1 or higher, ctfmon.exe is loaded but crashes on kana-mode.
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Process-ja-JP]
+
+Echo,"Processing Japanese IME components..."
+
+Echo,"Building a list of required files..."
+
+RequireFileEx,AppendList,\Windows\System32\tsf3gip.dll
+RequireFileEx,AppendList,\Windows\IME\IMEJP\DICTS
+RequireFileEx,AppendList,\Windows\System32\IME\IMEJP
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\IMEJP\IMJPAPI.DLL
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+
+///////////////////////////////////////////////////////////////////////////////////
+// Registry
+
+Echo,"Registering Japanese IME components..."
+
+// Software Reg
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\15.0\IMEJP",HKLM,"Tmp_Software\Microsoft\IME\15.0\IMEJP"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IMEJP",HKLM,"Tmp_Software\Microsoft\IMEJP"
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\15.0\IMEJP",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\15.0\IMEJP"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IMEJP",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IMEJP"
+End
+
+// Set keyboard to ja-JP - User
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",1,00000411
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\HiddenDummyLayouts",00000411,00000411
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000411\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID","{03B5835F-F03C-411B-9CE2-AA23E1171E36}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000411\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{A76C93D9-5523-4E90-AAFA-4DB112F9AC76}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000411\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",0
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\Language",00000000,00000411
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{A028AE76-01B1-46C2-99C4-ACD9858AE02F}\LanguageProfile\0x00000412\{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}","Enable",1
+
+[#Process-ko-KR#]
+// ===============================================================================================================================
+// Name...........: Process-ko-KR
+// Description....: Configure IME for Korean
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+//                  joveler - Disable Old Hangul IME, cleanup en-US reg keys
+// Remarks........: WARNING: Hanja/Special character input only works on v1809 or lower.
+//
+//                  Old Hangul IME is disabled in StartCTFMon.cmd.
+//                    - `regsvr32` call generates Old Hangul IME registry key, "HKCU\SOFTWARE\Microsoft\CTF\TIP\{a1e2b86b-924a-4d43-80f6-8a820df7190f}".
+//                    - The key is deleted with `REG DELETE` to disable Old Hangul IME.
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Process-ko-KR]
+Echo,"Processing Korean IME components..."
+
+Echo,"Building a list of required files..."
+
+// Included in ko-KR Winre.wim: \Windows\Fonts\gulim.ttc, \Windows\Fonts\malgun.ttf
+
+RequireFileEx,AppendList,\Windows\IME\IMEKR\DICTS\imkrhjd.lex
+RequireFileEx,AppendList,\Windows\System32\IME\IMEKR\DICTS\imkrhjd.dll
+RequireFileEx,AppendList,\Windows\System32\IME\IMEKR\imkrapi.dll
+RequireFileEx,AppendList,\Windows\System32\IME\IMEKR\imkrtip.dll
+
+// Search
+RequireFileEx,AppendList,\Windows\System32\korwbrkr.lex
+RequireFileEx,AppendList,\Windows\System32\korwbrkr.dll
+
+// WoW64 
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin  
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\IMEKR\DICTS\imkrhjd.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\IMEKR\imkrapi.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\IMEKR\imkrtip.dll
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+
+///////////////////////////////////////////////////////////////////////////////////
+// Registry
+
+Echo,"Registering Korean IME components..."
+
+// Software Reg
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\15.0\IMEKR",HKLM,"Tmp_Software\Microsoft\IME\15.0\IMEKR"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IMEKR",HKLM,"Tmp_Software\Microsoft\IMEKR"
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\15.0\IMEKR",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\15.0\IMEKR"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IMEKR",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IMEKR"
+End
+
+// Set keyboard to ko-KR - User
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",1,00000412
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{A028AE76-01B1-46C2-99C4-ACD9858AE02F}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",0x04120412
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\HiddenDummyLayouts",00000412,00000412
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID","{A028AE76-01B1-46C2-99C4-ACD9858AE02F}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",0
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\Language",00000000,00000412
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{A028AE76-01B1-46C2-99C4-ACD9858AE02F}\LanguageProfile\0x00000412\{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}","Enable",1
+
+// Set keyboard to ko-KR - System
+RegWrite,HKLM,REG_SZ,"Tmp_System\Keyboard Layout\Preload",1,00000412
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{A028AE76-01B1-46C2-99C4-ACD9858AE02F}"
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",0x04120412
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\HiddenDummyLayouts",00000412,00000412
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{A028AE76-01B1-46C2-99C4-ACD9858AE02F}\LanguageProfile\0x00000412\{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}","Enable",1
+
+[#Process-zh-CN#]
+// ===============================================================================================================================
+// Name...........: Process-zh-CN
+// Description....: Configure IME for Simplified Chinese
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+//                  cobraman v1809 support
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Process-zh-CN]
+Echo,"Processing Simplified Chinese IME components..."
+
+Echo,"Building a list of required files..."
+
+RequireFileEx,AppendList,\Windows\InputMethod\CHS\ChsPinyin.lex
+RequireFileEx,AppendList,\Windows\InputMethod\CHS\ChsPinyin.lm
+RequireFileEx,AppendList,\Windows\InputMethod\CHS\ChsPinyinStx.lex
+RequireFileEx,AppendList,\Windows\InputMethod\CHS\ChsWubi.lex
+RequireFileEx,AppendList,\Windows\System32\InputMethod\CHS
+RequireFileEx,AppendList,\Windows\System32\MSWB70804.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Data0804.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Lexicons0804.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Models0804.dll
+RequireFileEx,AppendList,\Windows\System32\NOISE.CHS
+RequireFileEx,AppendList,\Windows\System32\chs_singlechar_pinyin.dat
+RequireFileEx,AppendList,\Windows\System32\ChsStrokeDS.dll
+
+// WoW64 
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin  
+  RequireFileEx,AppendList,\Windows\SysWOW64\InputMethod\CHS
+  RequireFileEx,AppendList,\Windows\SysWOW64\chs_singlechar_pinyin.dat
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+
+///////////////////////////////////////////////////////////////////////////////////
+// Registry
+
+Echo,"Registering Simplified Chinese IME components..."
+
+// Software Reg
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\15.0\IMETC",HKLM,"Tmp_Software\Microsoft\IME\15.0\IMETC"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IMETC",HKLM,"Tmp_Software\Microsoft\IMETC"
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\15.0\IMETC",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\15.0\IMETC"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IMETC",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IMETC"
+End
+
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",2,00000409
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",1,00000804
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{81D4E9C9-1D3B-41BC-9E6C-4B40BF79E35E}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{FA550B04-5AD7-411F-A5AC-CA038EC515D7}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",134481924
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\HiddenDummyLayouts",00000804,00000804
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID,{81D4E9C9-1D3B-41BC-9E6C-4B40BF79E35E}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",0
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{FA550B04-5AD7-411F-A5AC-CA038EC515D7}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\Language",00000000,00000804
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{81D4E9C9-1D3B-41BC-9E6C-4B40BF79E35E}\LanguageProfile\0x00000804\{FA550B04-5AD7-411F-A5AC-CA038EC515D7}","Enable",1
+// Not working IME, set enable=0 to hide
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{B2F9C502-1742-11D4-9790-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{6024B45F-5C54-11D4-B921-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{4BDF9F03-C7D3-11D4-B2AB-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{E429B25A-E5D3-4D1F-9BE3-0C608477E3A1}\LanguageProfile\0x00000404\{037B2C25-480C-4D7F-B027-D6CA6B69788A}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{E429B25A-E5D3-4D1F-9BE3-0C608477E3A1}\LanguageProfile\0x00000404\{D38EFF65-AA46-4FD5-91A7-67845FB02F5B}","Enable",0
+//-
+RegWrite,HKLM,REG_SZ,"Tmp_System\Keyboard Layout\Preload",2,00000409
+RegWrite,HKLM,REG_SZ,"Tmp_System\Keyboard Layout\Preload",1,00000804
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{81D4E9C9-1D3B-41BC-9E6C-4B40BF79E35E}"
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{FA550B04-5AD7-411F-A5AC-CA038EC515D7}"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000804\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",134481924
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\HiddenDummyLayouts",00000804,00000804
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{81D4E9C9-1D3B-41BC-9E6C-4B40BF79E35E}\LanguageProfile\0x00000804\{FA550B04-5AD7-411F-A5AC-CA038EC515D7}","Enable",1
+
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\InputMethod\Settings\CHS","Default Mode",1
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\InputMethod\Settings\CHS","EnableUMode",1
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\InputMethod\Settings\CHS","EnableVMode",1
+
+[#Process-zh-TW#]
+// ===============================================================================================================================
+// Name...........: Process-zh-TW
+// Description....: Configure IME for Traditional Chinese
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+//                  cobraman v1809 support
+// Remarks........: 
+// Related........: Called from [Process]
+// ===============================================================================================================================
+[Process-zh-TW]
+
+Echo,"Processing Traditional Chinese IME components..."
+
+Echo,"Building a list of required files..."
+
+// Common zh-TW
+RequireFileEx,AppendList,\Windows\System32\MSWB70404.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Data0404.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Lexicons0404.dll
+RequireFileEx,AppendList,\Windows\System32\NL7Models0404.dll
+RequireFileEx,AppendList,\Windows\System32\NOISE.CHT
+
+// Bopomofo, Cangjie, Quick three IME can be used
+// Bopomofo IME, old style, from Win7
+RequireFileEx,AppendList,\Windows\IME\IMETC
+RequireFileEx,AppendList,\Windows\System32\IME\IMETC
+RequireFileEx,AppendList,\Windows\System32\ChtBopomofoDS.dll
+
+// Cangjie, Quick IME, new style
+RequireFileEx,AppendList,\Windows\InputMethod\CHT
+RequireFileEx,AppendList,\Windows\System32\InputMethod\CHT
+RequireFileEx,AppendList,\Windows\System32\ChtCangjieDS.dll
+RequireFileEx,AppendList,\Windows\System32\ChtQuickDS.dll
+
+// zh-HK Cantonese IME not working
+// RequireFileEx,AppendList,\Windows\System32\ChtHkStrokeDS.dll
+
+// WoW64 
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin  
+  RequireFileEx,AppendList,\Windows\SysWOW64\MSWB70404.dll
+  RequireFileEx,AppendList,\Windows\SysWOW64\NL7Data0404.dll
+  // Bopomofo IME
+  RequireFileEx,AppendList,\Windows\SysWOW64\IME\IMETC
+End
+
+///////////////////////////////////////////////////////////////////////////////////
+// Extract
+RequireFileEx,ExtractList
+
+///////////////////////////////////////////////////////////////////////////////////
+// Registry
+
+Echo,"Registering Traditional Chinese IME components..."
+
+// Software Reg
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IME\15.0\IMETC",HKLM,"Tmp_Software\Microsoft\IME\15.0\IMETC"
+RegCopy,HKLM,"Tmp_Install_Software\Microsoft\IMETC",HKLM,"Tmp_Software\Microsoft\IMETC"
+
+// WoW64
+If,ExistFile,"%TargetSystem32%\wow64.dll",Begin
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IME\15.0\IMETC",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IME\15.0\IMETC"
+  RegCopy,HKLM,"Tmp_Install_Software\WOW6432Node\Microsoft\IMETC",HKLM,"Tmp_Software\WOW6432Node\Microsoft\IMETC"
+End
+
+// Keyboard
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",1,00000404
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Keyboard Layout\Preload",2,00000409
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{B115690A-EA02-48D5-A231-E3578D2FDF80}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{B2F9C502-1742-11D4-9790-0080C882687E}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67372036
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\HiddenDummyLayouts",00000404,00000404
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID","{B115690A-EA02-48D5-A231-E3578D2FDF80}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",0
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{B2F9C502-1742-11D4-9790-0080C882687E}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","CLSID",{"00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}\00000000","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\CTF\SortOrder\Language",00000000,00000404
+//- Default input Mode, eng="0x00000001" cht="0x00000000"
+RegWrite,HKLM,REG_SZ,"Tmp_Default\Software\Microsoft\IME\15.0\IMETC","Default Input Mode","0x00000001"
+//-
+// Bopomofo, Quick, Cangjie IME, these three IMEs can work
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{B2F9C502-1742-11D4-9790-0080C882687E}","Enable",1
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{6024B45F-5C54-11D4-B921-0080C882687E}","Enable",1
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{4BDF9F03-C7D3-11D4-B2AB-0080C882687E}","Enable",1
+//-
+// Not working IME, set enable=0 to hide
+// "Hong Kong Cantonese","old Quick","old Cangjie","Chinese Traditional DaYi","Chinese Traditional Array" IME
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{0AEC109C-7E96-11D4-B2EF-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{0B883BA0-C1C7-11D4-87F9-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{F3BA907A-6C7E-11D4-97FA-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{E429B25A-E5D3-4D1F-9BE3-0C608477E3A1}\LanguageProfile\0x00000404\{037B2C25-480C-4D7F-B027-D6CA6B69788A}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_Default\Software\Microsoft\CTF\TIP\{E429B25A-E5D3-4D1F-9BE3-0C608477E3A1}\LanguageProfile\0x00000404\{D38EFF65-AA46-4FD5-91A7-67845FB02F5B}","Enable",0
+//-
+RegWrite,HKLM,REG_SZ,"Tmp_System\Keyboard Layout\Preload",1,00000404
+RegWrite,HKLM,REG_SZ,"Tmp_System\Keyboard Layout\Preload",2,00000409
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{B115690A-EA02-48D5-A231-E3578D2FDF80}"
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{B2F9C502-1742-11D4-9790-0080C882687E}"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000404\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67372036
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Default","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","Profile","{00000000-0000-0000-0000-000000000000}"
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\Assemblies\0x00000409\{34745C63-B2F0-4784-8B67-5E12C8701A31}","KeyboardLayout",67699721
+RegWrite,HKLM,REG_SZ,"Tmp_System\Software\Microsoft\CTF\HiddenDummyLayouts",00000404,00000404
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{B2F9C502-1742-11D4-9790-0080C882687E}","Enable",1
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{6024B45F-5C54-11D4-B921-0080C882687E}","Enable",1
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{531fdebf-9b4c-4a43-a2aa-960e8fcdc732}\LanguageProfile\0x00000404\{4BDF9F03-C7D3-11D4-B2AB-0080C882687E}","Enable",1
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{0B883BA0-C1C7-11D4-87F9-0080C882687E}","Enable",0
+RegWrite,HKLM,REG_DWORD,"Tmp_System\Software\Microsoft\CTF\TIP\{B115690A-EA02-48D5-A231-E3578D2FDF80}\LanguageProfile\0x00000404\{F3BA907A-6C7E-11D4-97FA-0080C882687E}","Enable",0
+
+[#SetDefaultOptions#]
+// ===============================================================================================================================
+// Name...........: SetDefaultOptions
+// Description....: Sets script options to default values.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........: 
+// Related........: btn_SetDefaultOptions
+// ===============================================================================================================================
+[SetDefaultOptions]
+System,Cursor,Wait
+WriteInterface,Value,%ScriptFile%,Interface,cmb_LangBarPos,"Hidden"
+WriteInterface,Value,%ScriptFile%,Interface,cb_LangBarTransparent,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_LangBarShowAdditionalIcons,True
+WriteInterface,Value,%ScriptFile%,Interface,cb_LangBarShowTxtLbls,True
+System,Cursor,Normal
+
+[#ToggleAdvancedOptions#]
+// ===============================================================================================================================
+// Name...........: ToggleAdvancedOptions
+// Description....: Show/Hide advanced options.
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_AdvancedOptions
+// ===============================================================================================================================
+[ToggleAdvancedOptions]
+Message,"There are no advanced options available for this script."
+
+[#ShowScriptInfo#]
+// ===============================================================================================================================
+// Name...........: ShowScriptInfo
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........: btn_ScriptInfo
+// ===============================================================================================================================
+[ShowScriptInfo]
+Message,"This script with automatically detect and enable Input Method Editor for Chinese, Japanese, and Korean languages."
+
+[#Interface#]
+// ===============================================================================================================================
+// Name...........: Interface
+// Description....: 
+// Syntax.........: 
+// Parameters.....: 
+// Return values..: 
+// Author.........: Homes32
+// Remarks........:
+// Related........:
+// ===============================================================================================================================
+[Interface]
+btn_SetDefaultOptions=,1,8,543,5,25,25,SetDefaultOptions,SetDefaults_16.png,True,"__Restore Defaults"
+btn_AdvancedOptions=,1,8,574,5,25,25,ToggleAdvancedOptions,Advanced_Disabled_16.png,True,"__Show Advanced Options"
+btn_ScriptInfo=,1,8,605,5,25,25,ShowScriptInfo,Help_16.png,True,"__Script Info"
+bvl_ToolbarOptions="Language Toolbar Settings",1,12,5,50,412,181,8,Bold
+lbl_LangBar=Position:,1,1,15,80,86,16,8,Normal
+cmb_LangBarPos=Hidden,1,4,64,75,155,21,"Docked in the TaskBar","Floating On Desktop",Hidden
+cb_LangBarTransparent="Show the Language bar as transparent when inactive",1,3,15,110,286,18,True
+cb_LangBarShowAdditionalIcons="Show additional Language bar icons in the taskbar",1,3,15,130,271,18,True
+cb_LangBarShowTxtLbls="Show text labels on the Language bar",1,3,15,150,200,18,True
+rtf_WinRTRemarks=WinRTRemarks.rtf,1,6,5,250,412,130
+
+[InterfaceEncoded]
+SetDefaults_16.png=2475,3404
+Help_16.png=2830,3868
+WinRTRemarks.rtf=484,564
+Advanced_Disabled_16.png=474,744
+
+[EncodedFile-InterfaceEncoded-SetDefaults_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHEGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE5LTEwLTIxVDE3OjIxOjEyLTA1OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiMWM3ZDhlNS1mMGMxLTMwNDgtOGNiOS03YWU4YjgyNDgyNmQiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDowNzhkNDM1MC04NWRmLTg4NDQtOTY0Mi1lYTIxNmU3YjUwNDIiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiPiA8ZGM6Y3JlYXRvcj4gPHJkZjpTZXE+IDxyZGY6bGk+SG9tZXMzMjwvcmRmOmxpPiA8L3JkZjpTZXE+IDwvZGM6Y3JlYXRvcj4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpmMDM1MDg3Mi1hYmUxLWU5NDAtOTE2NC1kYzRjMzdjOGIwOTUiIHN0RXZ0OndoZW49IjIwMTktMTAtMjFUMTc6MjE6MTItMDU6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MDdmNDNiMDctMTg1NC1hNjQwLWEwM2UtYTQxMTM2YTA0ODA2IiBzdEV2dDp3aGVuPSIyMDE5LTEwLTIxVDE3OjIxOjQ3LTA1OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmIxYzdkOGU1LWYwYzEtMzA0OC04Y2I5LTdhZThiODI0ODI2ZCIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MTo1Mi0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PlYy9voAAAJBSURBVDiNpdHLThNRHAbwvkCjpalcSyyUEDo09Jw5MxZeggXdQHSpa96ARTclolWpLYtG20IDwdpaoeVOW63G0gvEmEaj3cFKYrxMXLjw88wAbQ3smOQ3OTn/73yZiw6A7jK0G9tjJ0rcPmtnB8zNFbnjU0VtT52VWD1/UcE4KzOFw39K3D6D44NDYRWeOVdQYKoxDue8YxjeH4b1lRXm5S70v+7HSHlkjO83FeSZkcNFnAUnDFsGuOIu7L0v4M7GbXRlusDeMGO9QMyIHikrYSA7ACEnQF2LuyLkrIzuTDd6Q704rB1CvabWp6B/qYeYFT31AmlTqtrX7XAmb2AwLsCyZoFz2wn7th2GqAHxfEI7nM6voW2+DY4dB8QNsVovsKVsCl2myOXyGrpA0LHSAWOsBZOxSeAL8LH0GWJYRGeyE/KqDHFFVOoFQkJQBucFpFNb+JH/gxeJFMx+M4SADW/TZdR2jnAzdAtXo1cgJ2XQ51TVKGBLrGqJXofkl7C5uotvld9YiC/hSSyCr8VfmF6cQcucAUPPhkAX6ZnGK9Aw9UhRCdeCJhAvQblwAPzkk+9ApXgA6z0rLGELWISBRuiZxkckQWLkIIUkGH1G9Ln7UPtUA/4Co75R6O/rIT2VoGaaNH4jmSM6EiAu4ieQgzJava2QZ2RMBCZgvmsGDVLweTOXeqZR8Jic8JFx8ogosl9Gj7cHpmkTqJ8/7iwvmCUqRcuc5i8q0JGHpJ08IG6uyB1rvNrarc18RHeu4DL+AeXUQV071uymAAAAAElFTkSuQmCCeJwTCk4tcUlNSyzNKSmONzTTK8hLZxgFIwes5sQv/03zkSgjAwBGXgl7UO9x9wEAAAACAAAAKgAAAKsJAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Help_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAHAWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDggNzkuMTY0MDM2LCAyMDE5LzA4LzEzLTAxOjA2OjU3ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAxOC0wMi0yMlQxNjo1OTo1MC0wNjowMCIgeG1wOk1vZGlmeURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMTktMTItMDJUMjE6NTM6MDQtMDY6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6YWQ2OTFmMzItY2FiZC1hZTQzLTlmNjAtMzk5YjQyOTBlMTNiIiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6OTBjZmFlNjAtYWJhZS1iNTQ3LWIyODEtOWYxNzg2YzM1NjQ2IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIj4gPGRjOmNyZWF0b3I+IDxyZGY6U2VxPiA8cmRmOmxpPkhvbWVzMzI8L3JkZjpsaT4gPC9yZGY6U2VxPiA8L2RjOmNyZWF0b3I+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MzUwYTZiYzMtZDFiMi03MjRjLTlmZWQtY2RmYTM4YzhjM2FkIiBzdEV2dDp3aGVuPSIyMDE4LTAyLTIyVDE2OjU5OjUwLTA2OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo4MmNhNWFiYy05Mzg0LWUwNGYtOGE5NC0yMTk1NjY1NjY1YTUiIHN0RXZ0OndoZW49IjIwMTgtMDItMjJUMTc6MTA6MDUtMDY6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmFkNjkxZjMyLWNhYmQtYWU0My05ZjYwLTM5OWI0MjkwZTEzYiIgc3RFdnQ6d2hlbj0iMjAxOS0xMi0wMlQyMTo1MzowNC0wNjowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIxLjAgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDwvcmRmOlNlcT4gPC94bXBNTTpIaXN0b3J5PiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PozE0ngAAAOzSURBVDgRBcF9TJR1AMDx7/N7nnuOez/kxUJe4q2pWEgoykxLpqkzx6bhlszN/soZ/dE0W9bWZrVZ2WYt/ypn5VrmzDkZZk2INoRyNJEUUDg4TuC4g7vjjrvjHu7uefp8pJljb2KymMlr2g5rq5H0ZQj6V+mzwYOh4qrGbDyadqN1GfOhK7Hp2cV4VQWRE5+SF42QUVUUAEOSkDJZsMvuQEg68/OgfOBPjzvf4xnDpArW1xQe2rxS/XB/Q8kPzlnv6blYXJeEAEB+Z8MGTOllrE0b13V4uXXk3NDuS3/4rYmoTnGeDUk30f1PkNvDmntQz3/5mecKm2o8//6WGByNY7ehmI0Mec9Xlvw6rf51+Mv7K3IzBmff2sgbB2rJdZpJpZa5NzzJR+fv0dMxwqPZqq0XT37cvqbo/JapvpFl+fPtGxhv2PHjkauxuqJMFpdL5qtTO3A7ZMa8fnJtBmUlKissaR75UmgzER66K4qa1ttVqafvttBLi9d868lpTvkXWVloxunI4cLVfg6/e43GQ9c4e3GAWCDECjVJYikBqsTd30e4mSw9aq0tt4ontvx9vZ4lCi0SmayO2ST45dYYfQNR5r0ZkokkTruG50mYwcdRYnGNwHiQjmHdpW3b2iYixZV74sFFTMJAUWQkIZHSdHwTi5w8VsXpo2WMjgU5ezmA1e7G5bCQ67IyN7FApm7TdpFWFIvIGiiKjCwkxn0R7g/O09pSzmfHy+m6M8He40MMzTgoL3ZiiBzUHDsm1YJsMUtCHfmvU813oMiCJ/4Y4WgKcszUP2sFC1zuijA6qlJT5ULHhGq2ogsHT6+uQNztva8UxWba66rrT10fnkMsazhtKkIxOPeTB99kmP5HOgWVuUjChCzMWK0qWtLOltUWTe3u/VoUKNm/D1Yu9U9rglQ8jWwSxGMp9r5Uxqu7XqTt8CYcFkEqo+ByWPEFFNbWV/Oa5cHV2FR4WgQmw2yd6Gl7v7WIuTmZQDBJPLFMy+5KtjWWcGRfAZKRQVWt+OYkYvYyPtm1EOHCF+8FH3iR366vRQuEppsb3SPyuqr9XQNLUjaR5nr3FOGFBT74ZoBRv5m47iSvZBXfn3DP1E5d2TP43Y3Hsm4gH9/8AlmbHWMp9XBnafbOtj01lSa7rdQbynDrxgQR3DQ0VvB6UwFndgban5q82eqZiD6QRscR2SwKgGToaLKKP5Tu3Gib7Fxd4Ws5+Upd82JuwypTNqMXJANeOTxwCd9i91g4jaSawTAA+B9saZuyCHkkigAAAABJRU5ErkJggnic4/ZIzSmINzTTK8hLZxgFIw7wceOXd9V7kMTIAAAhOQWdbDOZ9gEAAAACAAAAIwAAAA4LAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFolders]
+Cmd
+
+[Cmd]
+StartCTFMon.cmd=579,720
+
+[EncodedFile-AuthorEncoded-WIRELESS_KBD_80.png]
+lines=2
+0=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
+1=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
+2=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
+
+[AuthorEncoded]
+WIRELESS_KBD_80.png=7618,10264
+Logo=WIRELESS_KBD_80.png
+
+[EncodedFile-Cmd-StartCTFMon.cmd]
+lines=0
+0=/Td6WFoAAATm1rRGBMCMA8MEIQEWAAAAAAAAAHajaTLgAkIBhF0AHWB8pGUx/g6oiqbPs2Y14X+dU4RgEN5Pv+bVOgT4AUztpY3kbtoXNJP92h1GctZyFMjSCoPK1v5M8p29WQoGQS9nOyKetm/SIGcXXs5juhQuTBsQjuEV118vD/VXbYbpQiS2lT6UQ7XcworaqReZBRKP3WHseUdtYB2yMmweZBwY95pf0T/rzFJaY4gjy73g9xCAhmuUvFtdv5QpEomz8IKQHviG7r7UgkV0uvkGjW5gDnhl5G8DPDltTvl/vAAsnTu9X6UmA99DA7Hcx1wuTgcZ0W+LeQaD/6S0lr2H5qmshx+MZbhwZIUxh5l+wdSn88xL7O69DxMR9E6QGbkop2kjR38MKo/B4N5L4bpJruWB/asA9kIl8Enpx4ljM7aUDjlY0oVoNdlWUgkjSxdKszQBg9ijApOW1f60UYTadglKbYyNiqbgXDgpch/t3OhtN7F+rxkvmUcj91xyznqIdoMampZWWweJqlELtztJyLETXRIcTi454ivp1PqH2GnTdOS4QAAxpgBnCo/QUQABqAPDBAAAutRLErHEZ/sCAAAAAARZWnic4w8uSSwqcQ5x883P00vOTWEYBSMKODNB6DOM2OXPZpy7wsQGAORGCXhkE8YnAQAAAAIAAAArAAAAzAEAAAAAAAABAAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-WinRTRemarks.rtf]
+lines=0
+0=eJxVUMFuGkEM7RmJf/C5UtHMQtoiTgmqSoqaQxKpB5yDmfUuUwZ7NTNLVCH+vcOGHHKxLPv5ved3wpgbiyTJD8V17Xw2x5qbxqBo750eOsqXQSBprZlO3/uGrZlVJ2xUct6G0hhsxAds3I5i4mxgqZI0UFqcz+PRCZ0GjQUKC4xcVzc32EZmMbgNPZvFgPmMLQtHyhrh0btdwRmwZmImdm5m9oxHz697L/UMe2dhPMKOYo2JKmMwherb11IPfcgWXXlsO7hKlcHB/nf4c/v4cP/wsyyLbJl6YXjSA8P97x8JdnRk8Cn1nEAFjna+slCcBMocIWkfHU8uiuPRZq2RSS53L280X+COSoKwKkp9gPyv89LCq8Z9mrwjyu4vAUkNTx07TwGWJSxyF3ovXZ+LOmyj7lmuN5tf1JFw4g9Kz2/kXmBNQnDQmqHW4lo0D5JXlyXTT/8BIYCmbnic4w3PzAsKCU8sytMrKkljGAUjDDxhhNBRjNjl535csoOBDQC7xwkk+j+LUgEAAAACAAAAKQAAAFoBAAAAAAAAAQAAAAAAAAAAAAAA
+
+[EncodedFile-InterfaceEncoded-Advanced_Disabled_16.png]
+lines=0
+0=iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABjElEQVQ4y43Tz4tNcRgG8M+dOTGuRLhF9hi/h81IKRuR1IhSxIIssPAn3J1mb2oSNso0O2oWiIwNu2FWw21YkEm6ykwmv5XNc+rQnfLW6Zy+z/d9zvO+z/vWms2mBeIcjuMrhnC/06Wi8r0Ku/EIX9DACixHbwgW4wieo1UlWIsLOIWbmEA/fuI3NmMv9uEknmAQrZKgL8mvcAjH8A2LgveHYB5vQvSgSvAUI9iPOdQwhcngO7Ap2MqoHKuWMIu7+XMX7uAGZoKvw1kMoAfP8LkkOJAaN+I7XmAY7UqDZ3K2IUrOpLEfC1zEGvyI9Ml/kstoB9seh47iU4F6Erv8X9TiTjdqBUaxOjPQk4Y1OqhoBPuFt5mF+QLXcmEAl1Pb+QWa2BsFj3G96sIy7MzYzoVsfQcbZ7EUu3AP70qCwziN6fhcx7YkSs319KmNgyG/WhJMYBx7cCujeiIquvEeV+LApezLw2oJrcx2H25nHrZiC5akaeN5XuNl3n9tY6vcsMQUPqTm6cr5WNWaPzh+YcvU7DU1AAAAAElFTkSuQmCCeJyTcEwpS8xLTk2Jd8ksTkzKATIMzfQK8tIZRsFIALcY8ct/c/M8xcgAANAVDAqUbKQXAQAAAAIAAAAvAAAA2gEAAAAAAAABAAAAAAAAAAAAAAA
