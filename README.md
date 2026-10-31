@@ -11,7 +11,7 @@
 
 PhoenixPE is a fully customizable WinPE Rescue and Recovery Environment built on Win10/Win11. Boot it from a USB drive, CD/DVD, PXE, or hard disk — and get access to a powerful suite of recovery, diagnostics, and repair tools without needing a working OS.
 
-![PhoenixPE main interface screenshot](https://github.com/PhoenixPE/PhoenixPE/blob/master/.github/Images/PhoenixPE-Main.png)
+![PhoenixPE main interface screenshot](https://github.com/lethetuan/PhoenixPE/blob/master/.github/Images/PhoenixPE-Main.png)
 
 ## Why PhoenixPE?
 
@@ -47,13 +47,13 @@ PhoenixPE ships with a curated selection of well-integrated tools to cover the m
 
 ## Screenshots
 
-![PhoenixPE running on Windows 11](https://github.com/PhoenixPE/PhoenixPE/blob/master/.github/Images/PhoenixPE-Win11-01.png)
+![PhoenixPE running on Windows 11](https://github.com/lethetuan/PhoenixPE/blob/master/.github/Images/PhoenixPE-Win11-01.png)
 
 ## Getting Started
 
 **Requirements:** A Windows 10 or Windows 11 host machine, a compatible Win10/Win11 source (see [Compatible Sources](https://github.com/PhoenixPE/PhoenixPE/wiki/Source-Compatibility)), and internet access for the initial build.
 
-1. **Download** the [latest release](https://github.com/PhoenixPE/PhoenixPE/releases) and unpack it to your desired location.
+1. **Download** the [latest release](https://github.com/lethetuan/PhoenixPE/releases) and unpack it to your desired location.
 2. **Launch PEBakery**, point it at your Windows source, and select the scripts you want to include.
 3. **Build.** PEBakery will download required tools from the Windows ADK on the first run and cache everything locally — subsequent builds don't need internet access.
 4. **Write to media** using Rufus or your preferred tool, or configure your network for PXE boot.
